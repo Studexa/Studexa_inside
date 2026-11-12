@@ -1,0 +1,2 @@
+-- Baseline migration for StudyQuest.
+-- The application schema starts in Step 3 (users, profiles, refresh_tokens).
