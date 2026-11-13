@@ -2,7 +2,7 @@ spring:
   application:
     name: studyquest
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/studyquest}
+    url: ${DB_URL:jdbc:postgresql://localhost:${DB_PORT:5433}/studyquest}
     username: ${DB_USER:studyquest}
     password: ${DB_PASSWORD:change_me_locally}
     hikari:
@@ -35,8 +35,32 @@ management:
       show-details: never
 
 app:
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
   cors:
     allowed-origin: ${FRONTEND_URL:http://localhost:5173}
+  jwt:
+    # Dev-only default. Always set JWT_SECRET outside local development (32+ bytes).
+    secret: ${JWT_SECRET:dev-only-secret-change-me-0123456789abcdef}
+    issuer: ${JWT_ISSUER:https://studyquest.local}
+    access-token-ttl: ${JWT_ACCESS_TTL:15m}
+    refresh-token-ttl: ${JWT_REFRESH_TTL:30d}
+    refresh-cookie-secure: ${JWT_COOKIE_SECURE:false}
+  oauth:
+    google:
+      enabled: ${GOOGLE_LOGIN_ENABLED:false}
+      client-id: ${GOOGLE_CLIENT_ID:}
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
+  ai:
+    api-key: ${AQ.Ab8RN6JZ3_1CeNaHwKWgnHPBMa3H01Dd-NF9Fo9IC6e3yh47HQ}
+    model: ${ANTHROPIC_MODEL:claude-sonnet-4-5}
+    daily-limit: ${AI_DAILY_LIMIT:10}
+    max-source-chars: ${AI_MAX_SOURCE_CHARS:12000}
+    timeout: ${AI_TIMEOUT:45s}
+  security:
+    auth-rate-limit:
+      enabled: ${AUTH_RATE_LIMIT_ENABLED:true}
+      max-requests: ${AUTH_RATE_LIMIT_MAX:30}
+      window-seconds: ${AUTH_RATE_LIMIT_WINDOW:60}
 
 springdoc:
   swagger-ui:
