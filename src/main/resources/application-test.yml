@@ -1,0 +1,15 @@
+# Test profile: always point at the dedicated `studexa_test` database.
+# The TestDatabaseGuard refuses to start the context unless the URL ends in
+# `_test`, so an accidental run against a real database fails loudly.
+spring:
+  datasource:
+    url: ${TEST_DB_URL:jdbc:postgresql://localhost:${DB_PORT:5432}/studexa_test}
+    username: ${DB_USER:studexa}
+    password: ${DB_PASSWORD:change_me_locally}
+  flyway:
+    clean-disabled: false
+
+logging:
+  level:
+    root: WARN
+    com.studexa: INFO
