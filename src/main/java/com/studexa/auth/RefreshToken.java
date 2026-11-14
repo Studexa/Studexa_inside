@@ -14,19 +14,12 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 /**
  * A rotating refresh token. Only the SHA-256 hash of the raw token is stored.
  */
 @Entity
 @Table(name = "refresh_tokens")
-@Getter
-@Setter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RefreshToken {
 
     @Id
@@ -49,6 +42,9 @@ public class RefreshToken {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    public RefreshToken() {
+    }
+
     public RefreshToken(User user, String tokenHash, Instant expiresAt) {
         this.user = user;
         this.tokenHash = tokenHash;
@@ -59,5 +55,53 @@ public class RefreshToken {
 
     public boolean isUsable(Instant now) {
         return !revoked && expiresAt.isAfter(now);
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    public String getTokenHash() {
+        return tokenHash;
+    }
+
+    public void setTokenHash(String tokenHash) {
+        this.tokenHash = tokenHash;
+    }
+
+    public Instant getExpiresAt() {
+        return expiresAt;
+    }
+
+    public void setExpiresAt(Instant expiresAt) {
+        this.expiresAt = expiresAt;
+    }
+
+    public boolean isRevoked() {
+        return revoked;
+    }
+
+    public void setRevoked(boolean revoked) {
+        this.revoked = revoked;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
     }
 }

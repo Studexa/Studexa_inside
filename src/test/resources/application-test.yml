@@ -1,0 +1,44 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/studexa_test
+    username: studexa
+    password: ${DB_PASSWORD}
+  flyway:
+    clean-disabled: false
+
+app:
+  game:
+    xp-per-review: 3
+    xp-bonus-good-easy: 2
+    xp-finish-session: 20
+    xp-finish-session-min-cards: 5
+    max-sessions-per-day: 5
+    xp-focus-session: 25
+    xp-focus-session-min-minutes: 25
+    max-focus-sessions-per-day: 8
+    xp-create-card: 2
+    xp-create-note: 5
+    max-create-xp-per-day: 20
+    xp-daily-goal: 30
+    xp-boss-win: 100
+    xp-quiz-base: 10
+    xp-quiz-per-correct: 1
+    max-quizzes-per-day: 5
+    streak-bonus-per-seven-days: 0.10
+    max-streak-bonus: 0.50
+    daily-xp-cap: 600
+    level-xp-base: 100
+    level-xp-increment: 50
+    level-up-coins: 20
+    streak-freeze-cost: 50
+    max-freezes-held: 2
+    coins-per-ten-xp: 1
+    too-fast-threshold-ms: 800
+    too-fast-consecutive-count: 10
+    offline-max-days-ago: 7
+    max-reviews-per-card-per-day: 1
+
+logging:
+  level:
+    root: WARN
+    com.studexa: WARN

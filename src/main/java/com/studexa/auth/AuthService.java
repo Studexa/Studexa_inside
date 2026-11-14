@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
+import java.text.Normalizer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,7 +70,7 @@ public class AuthService {
         User user = userRepository.save(
                 User.withPassword(email, passwordEncoder.encode(request.password())));
 
-        String nickname = hasText(request.nickname()) ? request.nickname().trim() : defaultNickname(email);
+        String nickname = hasText(request.nickname()) ? normalizeText(request.nickname().trim()) : defaultNickname(email);
         String language = hasText(request.language()) ? request.language() : Profile.DEFAULT_LANGUAGE;
         Profile profile = profileRepository.save(new Profile(user, nickname, language));
 
@@ -174,7 +175,7 @@ public class AuthService {
 
         Profile profile = profileRepository.findById(user.getId())
                 .orElseGet(() -> {
-                    String nickname = hasText(displayName) ? displayName.trim() : defaultNickname(normalizedEmail);
+                    String nickname = hasText(displayName) ? normalizeText(displayName.trim()) : defaultNickname(normalizedEmail);
                     if (nickname.length() > 50) {
                         nickname = nickname.substring(0, 50);
                     }
@@ -216,5 +217,16 @@ public class AuthService {
 
     private static boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    /**
+     * Normalizes text to Unicode NFC so visually identical Khmer strings
+     * compare equal (BUG-G03).
+     */
+    private static String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        return Normalizer.normalize(value, Normalizer.Form.NFC);
     }
 }

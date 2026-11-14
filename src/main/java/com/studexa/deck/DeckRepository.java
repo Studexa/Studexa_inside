@@ -8,7 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface DeckRepository extends JpaRepository<Deck, UUID> {
 
-    List<Deck> findAllByUserIdOrderByUpdatedAtDesc(UUID userId);
+    List<Deck> findTop100ByUserIdOrderByUpdatedAtDesc(UUID userId);
 
     Optional<Deck> findByIdAndUserId(UUID id, UUID userId);
+
+    List<Deck> findAllByIdInAndUserId(List<UUID> ids, UUID userId);
 }

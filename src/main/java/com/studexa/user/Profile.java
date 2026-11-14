@@ -12,19 +12,12 @@ import jakarta.persistence.MapsId;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 /**
  * Student-facing profile. Shares its primary key with {@link User}.
  */
 @Entity
 @Table(name = "profiles")
-@Getter
-@Setter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Profile {
 
     public static final String DEFAULT_TIMEZONE = "Asia/Phnom_Penh";
@@ -63,6 +56,9 @@ public class Profile {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    public Profile() {
+    }
+
     public Profile(User user, String nickname, String language) {
         this.user = user;
         this.nickname = nickname;
@@ -76,5 +72,85 @@ public class Profile {
     @PreUpdate
     void onUpdate() {
         this.updatedAt = Instant.now();
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public void setUserId(UUID userId) {
+        this.userId = userId;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    public String getNickname() {
+        return nickname;
+    }
+
+    public void setNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    public String getAvatar() {
+        return avatar;
+    }
+
+    public void setAvatar(String avatar) {
+        this.avatar = avatar;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    public String getLevelOfStudy() {
+        return levelOfStudy;
+    }
+
+    public void setLevelOfStudy(String levelOfStudy) {
+        this.levelOfStudy = levelOfStudy;
+    }
+
+    public String getTimezone() {
+        return timezone;
+    }
+
+    public void setTimezone(String timezone) {
+        this.timezone = timezone;
+    }
+
+    public int getDailyGoalCards() {
+        return dailyGoalCards;
+    }
+
+    public void setDailyGoalCards(int dailyGoalCards) {
+        this.dailyGoalCards = dailyGoalCards;
+    }
+
+    public int getDailyGoalMinutes() {
+        return dailyGoalMinutes;
+    }
+
+    public void setDailyGoalMinutes(int dailyGoalMinutes) {
+        this.dailyGoalMinutes = dailyGoalMinutes;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

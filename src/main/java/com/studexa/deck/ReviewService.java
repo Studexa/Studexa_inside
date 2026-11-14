@@ -2,7 +2,10 @@ package com.studexa.deck;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -17,6 +20,8 @@ import com.studexa.deck.dto.ReviewAnswerResponse;
 import com.studexa.deck.dto.ReviewQueueCard;
 import com.studexa.deck.dto.ReviewQueueResponse;
 import com.studexa.deck.dto.ReviewUndoResponse;
+import com.studexa.game.dto.AwardResult;
+import com.studexa.game.GameService;
 import com.studexa.srs.CardState;
 import com.studexa.srs.CardStateType;
 import com.studexa.srs.QueueCard;
@@ -25,6 +30,7 @@ import com.studexa.srs.Sm2Scheduler;
 import com.studexa.srs.StudyQueueBuilder;
 import com.studexa.subject.Subject;
 import com.studexa.subject.SubjectRepository;
+import com.studexa.user.ProfileRepository;
 
 @Service
 public class ReviewService {
@@ -34,21 +40,26 @@ public class ReviewService {
     private final CardProgressRepository progressRepository;
     private final ReviewLogRepository reviewLogRepository;
     private final SubjectRepository subjectRepository;
+    private final ProfileRepository profileRepository;
     private final Sm2Scheduler scheduler;
     private final StudyQueueBuilder queueBuilder;
     private final Clock clock;
+    private final GameService gameService;
 
     public ReviewService(DeckService deckService, CardRepository cardRepository,
             CardProgressRepository progressRepository, ReviewLogRepository reviewLogRepository,
-            SubjectRepository subjectRepository, Clock clock) {
+            SubjectRepository subjectRepository, ProfileRepository profileRepository, Clock clock,
+            GameService gameService) {
         this.deckService = deckService;
         this.cardRepository = cardRepository;
         this.progressRepository = progressRepository;
         this.reviewLogRepository = reviewLogRepository;
         this.subjectRepository = subjectRepository;
+        this.profileRepository = profileRepository;
         this.scheduler = new Sm2Scheduler();
         this.queueBuilder = new StudyQueueBuilder();
         this.clock = clock;
+        this.gameService = gameService;
     }
 
     @Transactional(readOnly = true)
@@ -61,7 +72,7 @@ public class ReviewService {
 
         List<Card> cards;
         if (deckId != null) {
-            cards = cardRepository.findAllByDeckIdAndUserIdOrderByCreatedAtAsc(deckId, userId);
+            cards = cardRepository.findTop80ByDeckIdAndUserIdOrderByCreatedAtAsc(deckId, userId);
         } else {
             cards = cardRepository.findTop80ByUserIdOrderByCreatedAtDesc(userId);
         }
@@ -72,11 +83,9 @@ public class ReviewService {
 
         Map<UUID, CardProgress> progress = progressByCard(userId, cards);
 
-        // Load distinct decks for title/color/icon/subject info
+        // Load distinct decks for title/color/icon/subject info (batch-load to avoid N+1).
         List<UUID> deckIds = cards.stream().map(Card::getDeckId).distinct().toList();
-        Map<UUID, Deck> decks = deckIds.stream()
-                .map(id -> deckService.requireOwned(userId, id))
-                .collect(Collectors.toMap(Deck::getId, java.util.function.Function.identity()));
+        Map<UUID, Deck> decks = deckService.findByIds(userId, deckIds);
 
         List<QueueCard> queueCards = new ArrayList<>();
         for (Card card : cards) {
@@ -87,6 +96,14 @@ public class ReviewService {
         }
 
         Map<UUID, String> subjectNames = subjectNames(userId, new ArrayList<>(decks.values()));
+
+        // Load archived subject IDs so we can exclude cards from archived subjects (BUG-C05).
+        List<UUID> archivedSubjectIds = subjectIds(userId, decks.values()).stream()
+                .filter(id -> id != null)
+                .distinct()
+                .filter(id -> subjectRepository.findByIdAndUserId(id, userId)
+                        .map(Subject::isArchived).orElse(false))
+                .toList();
 
         List<QueueCard> ordered = queueBuilder.build(queueCards, now);
 
@@ -101,6 +118,13 @@ public class ReviewService {
                 continue;
             }
             Deck deck = decks.get(card.getDeckId());
+            if (deck == null) {
+                continue;
+            }
+            // Skip cards from archived subjects (BUG-C05).
+            if (deck.getSubjectId() != null && archivedSubjectIds.contains(deck.getSubjectId())) {
+                continue;
+            }
             result.add(toQueueCard(card, p, deck, subjectNames.get(deck.getSubjectId()), qc.state()));
         }
 
@@ -153,12 +177,28 @@ public class ReviewService {
         progressRepository.save(progress);
         reviewLogRepository.save(log);
 
+        // Award XP through the secure server-side game engine.
+        AwardResult award = gameService.awardXp(userId, "review_card", 3, clientReviewId,
+                Map.of("reviewsForCardToday", countReviewsForCardToday(userId, cardId)));
+
+        // Bonus XP for Good or Easy ratings (once per card per day).
+        int bonusXp = 0;
+        if (request.rating() == ReviewRating.GOOD || request.rating() == ReviewRating.EASY) {
+            // Use the same clientReviewId so a retried answer never awards
+            // the bonus XP twice (BUG-D01).
+            AwardResult bonus = gameService.awardXp(userId, "review_card_bonus", 2,
+                    clientReviewId, Map.of());
+            bonusXp = bonus.xpAwarded();
+        }
+
+        int totalXp = award.xpAwarded() + bonusXp;
+
         return new ReviewAnswerResponse(
                 card.getId(), card.getDeckId(), card.getType(),
                 card.getFront(), card.getBack(), card.getExtra(), card.getTags(),
                 next.state().name(), next.intervalDays(), next.reps(), next.lapses(),
                 next.ease(), next.dueAt(), labels,
-                0, false, 1, null);
+                totalXp, award.leveledUp(), award.newLevel(), null);
     }
 
     @Transactional
@@ -251,6 +291,17 @@ public class ReviewService {
                 .collect(Collectors.toMap(Subject::getId, Subject::getName, (a, b) -> a));
     }
 
+    /**
+     * Collects distinct subject IDs from the given decks.
+     */
+    private static List<UUID> subjectIds(UUID userId, Collection<Deck> decks) {
+        return decks.stream()
+                .map(Deck::getSubjectId)
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+    }
+
     private int countNew(List<Card> cards, Map<UUID, CardProgress> progress) {
         return (int) cards.stream()
                 .filter(c -> progress.get(c.getId()) != null
@@ -268,5 +319,17 @@ public class ReviewService {
 
     private int countReviewInResult(List<ReviewQueueCard> result) {
         return (int) result.stream().filter(c -> c.state().equals("REVIEW")).count();
+    }
+
+    private int countReviewsForCardToday(UUID userId, UUID cardId) {
+        ZoneId zoneId = profileRepository.findById(userId)
+                .map(p -> ZoneId.of(p.getTimezone()))
+                .orElse(ZoneId.systemDefault());
+        LocalDate today = LocalDate.now(zoneId);
+        return reviewLogRepository.findByCardIdAndUserIdOrderByReviewedAtDesc(cardId, userId).stream()
+                .filter(log -> log.getReviewedAt() != null
+                        && log.getReviewedAt().atZone(zoneId).toLocalDate().equals(today))
+                .mapToInt(log -> 1)
+                .sum();
     }
 }

@@ -38,7 +38,7 @@ public class DeckService {
 
     @Transactional(readOnly = true)
     public List<DeckResponse> list(UUID userId) {
-        List<Deck> decks = deckRepository.findAllByUserIdOrderByUpdatedAtDesc(userId);
+        List<Deck> decks = deckRepository.findTop100ByUserIdOrderByUpdatedAtDesc(userId);
         Map<UUID, String> subjects = subjectNames(userId, decks);
         Instant now = clock.instant();
         return decks.stream()
@@ -61,6 +61,19 @@ public class DeckService {
                 subjectName,
                 cardRepository.countByDeckIdAndUserId(deckId, userId),
                 progressRepository.countDueInDeck(userId, deckId, clock.instant()));
+    }
+
+    /**
+     * Batch-load decks owned by the user, keyed by id. Used by the review queue
+     * to avoid N+1 queries (BUG-H02).
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, Deck> findByIds(UUID userId, List<UUID> deckIds) {
+        if (deckIds.isEmpty()) {
+            return Map.of();
+        }
+        return deckRepository.findAllByIdInAndUserId(deckIds, userId).stream()
+                .collect(Collectors.toMap(Deck::getId, d -> d, (a, b) -> a));
     }
 
     @Transactional

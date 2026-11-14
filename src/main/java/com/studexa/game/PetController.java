@@ -1,0 +1,89 @@
+package com.studexa.game;
+
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.studexa.common.CurrentUser;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+@RestController
+@RequestMapping("/api/v1/pet")
+public class PetController {
+
+    private final PetService petService;
+
+    public PetController(PetService petService) {
+        this.petService = petService;
+    }
+
+    @GetMapping
+    public PetDto pet(@AuthenticationPrincipal Jwt jwt) {
+        return petService.getPet(CurrentUser.id(jwt));
+    }
+
+    /**
+     * Update the pet's mood. Called after study activity.
+     */
+    @PostMapping("/mood")
+    public void updateMood(@AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody UpdateMoodRequest request) {
+        petService.updateMood(CurrentUser.id(jwt), request.studiedToday());
+    }
+
+    /**
+     * Update the pet's stage. Called when level changes.
+     */
+    @PostMapping("/stage")
+    public void updateStage(@AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody UpdateStageRequest request) {
+        petService.updateStage(CurrentUser.id(jwt), request.level());
+    }
+
+    /**
+     * Rename the pet.
+     */
+    @PutMapping("/name")
+    public PetDto renamePet(@AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody RenamePetRequest request) {
+        petService.renamePet(CurrentUser.id(jwt), request.name());
+        return petService.getPet(CurrentUser.id(jwt));
+    }
+
+    /**
+     * Equip or unequip an accessory. Send accessoryType to equip, or empty string to unequip.
+     */
+    @PostMapping("/equip")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void equipAccessory(@AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody EquipAccessoryRequest request) {
+        petService.equipAccessory(CurrentUser.id(jwt), request.accessoryType());
+    }
+
+    public record UpdateMoodRequest(@NotBlank Boolean studiedToday) {
+    }
+
+    public record UpdateStageRequest(@NotBlank Integer level) {
+    }
+
+    public record RenamePetRequest(
+            @Size(min = 1, max = 50, message = "Pet name must be 1 to 50 characters.")
+            String name) {
+    }
+
+    public record EquipAccessoryRequest(String accessoryType) {
+    }
+}

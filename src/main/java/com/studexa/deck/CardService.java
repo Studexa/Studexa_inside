@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.text.Normalizer;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,7 +53,7 @@ public class CardService {
         }
         Map<UUID, Card> cards = cardRepository.findAllById(ids).stream()
                 .collect(Collectors.toMap(Card::getId, Function.identity()));
-        Map<UUID, Deck> decks = deckRepository.findAllByUserIdOrderByUpdatedAtDesc(userId).stream()
+        Map<UUID, Deck> decks = deckRepository.findTop100ByUserIdOrderByUpdatedAtDesc(userId).stream()
                 .collect(Collectors.toMap(Deck::getId, Function.identity()));
         Map<UUID, String> subjects = new java.util.HashMap<>();
         for (Deck deck : decks.values()) {
@@ -129,7 +130,7 @@ public class CardService {
     @Transactional(readOnly = true)
     public List<CardResponse> list(UUID userId, UUID deckId) {
         deckService.requireOwned(userId, deckId);
-        List<Card> cards = cardRepository.findAllByDeckIdAndUserIdOrderByCreatedAtAsc(deckId, userId);
+        List<Card> cards = cardRepository.findTop100ByDeckIdAndUserIdOrderByCreatedAtAsc(deckId, userId);
         Map<UUID, CardProgress> progress = progressByCard(userId, cards);
         Instant now = clock.instant();
         return cards.stream()
@@ -172,10 +173,10 @@ public class CardService {
             card.setType(request.type());
         }
         if (request.front() != null) {
-            card.setFront(requiredText(request.front(), "Card front"));
+            card.setFront(normalizeText(requiredText(request.front(), "Card front")));
         }
         if (request.back() != null) {
-            card.setBack(requiredText(request.back(), "Card back"));
+            card.setBack(normalizeText(requiredText(request.back(), "Card back")));
         }
         if (request.extra() != null) {
             card.setExtra(sanitizeExtra(request.extra()));
@@ -222,8 +223,8 @@ public class CardService {
         if (request.type() == null) {
             throw ApiException.badRequest("INVALID_TYPE", "Card type is required.");
         }
-        String front = requiredText(request.front(), "Card front");
-        String back = requiredText(request.back(), "Card back");
+        String front = normalizeText(requiredText(request.front(), "Card front"));
+        String back = normalizeText(requiredText(request.back(), "Card back"));
         Map<String, Object> extra = sanitizeExtra(request.extra());
         validateChoices(request.type(), back, extra);
         return Card.create(
@@ -314,5 +315,16 @@ public class CardService {
             return null;
         }
         return value.length() <= max ? value : value.substring(0, max);
+    }
+
+    /**
+     * Normalizes text to Unicode NFC so visually identical Khmer strings
+     * compare equal (BUG-G03).
+     */
+    private static String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        return Normalizer.normalize(value, Normalizer.Form.NFC);
     }
 }

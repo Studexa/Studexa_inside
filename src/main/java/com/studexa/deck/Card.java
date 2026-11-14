@@ -17,10 +17,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 /**
  * A flashcard. Source fields keep a short, verifiable reference to the note or
@@ -28,9 +24,6 @@ import lombok.Setter;
  */
 @Entity
 @Table(name = "cards")
-@Getter
-@Setter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Card {
 
     @Id
@@ -82,6 +75,9 @@ public class Card {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    public Card() {
+    }
+
     private Card(UUID deckId, UUID userId, CardType type, String front, String back,
             Map<String, Object> extra, List<String> tags, String sourceTitle, String sourceExcerpt) {
         this.deckId = deckId;
@@ -107,5 +103,125 @@ public class Card {
     @PreUpdate
     void onUpdate() {
         this.updatedAt = Instant.now();
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    public UUID getDeckId() {
+        return deckId;
+    }
+
+    public void setDeckId(UUID deckId) {
+        this.deckId = deckId;
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public void setUserId(UUID userId) {
+        this.userId = userId;
+    }
+
+    public CardType getType() {
+        return type;
+    }
+
+    public void setType(CardType type) {
+        this.type = type;
+    }
+
+    public String getFront() {
+        return front;
+    }
+
+    public void setFront(String front) {
+        this.front = front;
+    }
+
+    public String getBack() {
+        return back;
+    }
+
+    public void setBack(String back) {
+        this.back = back;
+    }
+
+    public Map<String, Object> getExtra() {
+        return extra;
+    }
+
+    public void setExtra(Map<String, Object> extra) {
+        this.extra = extra;
+    }
+
+    public List<String> getTags() {
+        return tags;
+    }
+
+    public void setTags(List<String> tags) {
+        this.tags = tags;
+    }
+
+    public String getMediaUrl() {
+        return mediaUrl;
+    }
+
+    public void setMediaUrl(String mediaUrl) {
+        this.mediaUrl = mediaUrl;
+    }
+
+    public boolean isStarred() {
+        return starred;
+    }
+
+    public void setStarred(boolean starred) {
+        this.starred = starred;
+    }
+
+    public boolean isSuspended() {
+        return suspended;
+    }
+
+    public void setSuspended(boolean suspended) {
+        this.suspended = suspended;
+    }
+
+    public String getSourceTitle() {
+        return sourceTitle;
+    }
+
+    public void setSourceTitle(String sourceTitle) {
+        this.sourceTitle = sourceTitle;
+    }
+
+    public String getSourceExcerpt() {
+        return sourceExcerpt;
+    }
+
+    public void setSourceExcerpt(String sourceExcerpt) {
+        this.sourceExcerpt = sourceExcerpt;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }
