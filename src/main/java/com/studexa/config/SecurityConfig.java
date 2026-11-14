@@ -54,9 +54,12 @@ public class SecurityConfig {
                 .logout(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // Public: health + auth (no session needed)
+                        .requestMatchers("/api/v1/health", "/api/v1/auth/**").permitAll()
+                        // All other API requires a valid JWT (secured by the OAuth2 resource server filter)
+                        .requestMatchers("/api/v1/**").authenticated()
+                        // Public: actuator, OpenAPI/Swagger docs, OAuth2
                         .requestMatchers(
-                                "/api/v1/health",
-                                "/api/v1/auth/**",
                                 "/actuator/health",
                                 "/actuator/info",
                                 "/v3/api-docs/**",
@@ -65,8 +68,11 @@ public class SecurityConfig {
                                 "/oauth2/**",
                                 "/login/oauth2/**")
                         .permitAll()
+                        // Admin-only API
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                        .anyRequest().authenticated())
+                        // Everything else (static assets + SPA client-side routes) is public;
+                        // the frontend handles its own auth redirects and the API guards its own endpoints.
+                        .anyRequest().permitAll())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))
                         .authenticationEntryPoint(authenticationEntryPoint))
