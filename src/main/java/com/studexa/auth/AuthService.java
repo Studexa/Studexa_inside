@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
+import java.util.UUID;
 import java.text.Normalizer;
 
 import org.slf4j.Logger;
@@ -74,7 +75,7 @@ public class AuthService {
         String language = hasText(request.language()) ? request.language() : Profile.DEFAULT_LANGUAGE;
         Profile profile = profileRepository.save(new Profile(user, nickname, language));
 
-        return result(user, profile, jwtService.issueTokens(user));
+        return result(user, profile, jwtService.issueTokens(user, UUID.randomUUID()));
     }
 
     @Transactional
@@ -89,7 +90,7 @@ public class AuthService {
         }
 
         Profile profile = requireProfile(user);
-        return result(user, profile, jwtService.issueTokens(user));
+        return result(user, profile, jwtService.issueTokens(user, UUID.randomUUID()));
     }
 
     @Transactional
@@ -102,14 +103,26 @@ public class AuthService {
                 .findByTokenHash(jwtService.hashRefreshToken(rawRefreshToken))
                 .orElseThrow(AuthService::invalidToken);
 
+        // Token reuse detection: if the presented token is already revoked,
+        // revoke the entire family and reject. This stops refresh-token
+        // replay attacks from compromising the user's session.
+        if (token.isRevoked()) {
+            UUID familyId = token.getFamilyId();
+            if (familyId != null) {
+                refreshTokenRepository.revokeAllForFamily(familyId);
+            }
+            throw invalidToken();
+        }
+
         if (!token.isUsable(clock.instant())) {
             throw invalidToken();
         }
 
+        UUID familyId = token.getFamilyId() != null ? token.getFamilyId() : UUID.randomUUID();
         token.setRevoked(true);
         User user = token.getUser();
         Profile profile = requireProfile(user);
-        return result(user, profile, jwtService.issueTokens(user));
+        return result(user, profile, jwtService.issueTokens(user, familyId));
     }
 
     @Transactional
@@ -118,7 +131,14 @@ public class AuthService {
             return;
         }
         refreshTokenRepository.findByTokenHash(jwtService.hashRefreshToken(rawRefreshToken))
-                .ifPresent(token -> token.setRevoked(true));
+                .ifPresent(token -> {
+                    UUID familyId = token.getFamilyId();
+                    if (familyId != null) {
+                        refreshTokenRepository.revokeAllForFamily(familyId);
+                    } else {
+                        token.setRevoked(true);
+                    }
+                });
     }
 
     /**
@@ -182,7 +202,7 @@ public class AuthService {
                     return profileRepository.save(new Profile(user, nickname, Profile.DEFAULT_LANGUAGE));
                 });
 
-        return result(user, profile, jwtService.issueTokens(user));
+        return result(user, profile, jwtService.issueTokens(user, UUID.randomUUID()));
     }
 
     private Profile requireProfile(User user) {

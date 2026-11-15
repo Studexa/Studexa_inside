@@ -47,14 +47,14 @@ public class ProdConfigGuard implements ApplicationRunner {
     }
 
     private void checkJwtSecret() {
+        if (jwtSecret != null && jwtSecret.startsWith(DEV_PLACEHOLDER_PREFIX)) {
+            throw new IllegalStateException(
+                    "JWT_SECRET (app.jwt.secret) must not be the dev placeholder in production");
+        }
         if (jwtSecret == null || jwtSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
                 < MIN_SECRET_BYTES) {
             throw new IllegalStateException(
                     "JWT_SECRET (app.jwt.secret) must be at least " + MIN_SECRET_BYTES + " bytes in production");
-        }
-        if (jwtSecret.startsWith(DEV_PLACEHOLDER_PREFIX)) {
-            throw new IllegalStateException(
-                    "JWT_SECRET (app.jwt.secret) must not be the dev placeholder in production");
         }
     }
 

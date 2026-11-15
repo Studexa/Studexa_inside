@@ -57,9 +57,12 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
         refreshCookieService.set(response, result.tokens().refreshToken());
 
+        // Redirect to the SPA callback page with NO token in the URL.
+        // The callback page calls POST /auth/refresh to obtain the access token,
+        // just like a page reload would. This avoids leaking the token via
+        // browser history, Referer headers, and server logs.
         String redirect = UriComponentsBuilder.fromUriString(frontendUrl)
                 .path("/auth/callback")
-                .queryParam("accessToken", result.tokens().accessToken())
                 .build()
                 .encode()
                 .toUriString();

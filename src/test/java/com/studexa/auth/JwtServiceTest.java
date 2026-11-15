@@ -56,7 +56,7 @@ class JwtServiceTest {
         User user = User.withPassword("student@example.com", "hash");
         user.setId(UUID.randomUUID());
 
-        IssuedTokens tokens = jwtService.issueTokens(user);
+        IssuedTokens tokens = jwtService.issueTokens(user, UUID.randomUUID());
         Jwt jwt = decoder.decode(tokens.accessToken());
 
         assertThat(jwt.getSubject()).isEqualTo(user.getId().toString());
@@ -72,7 +72,7 @@ class JwtServiceTest {
         User user = User.withPassword("student@example.com", "hash");
         user.setId(UUID.randomUUID());
 
-        IssuedTokens tokens = jwtService.issueTokens(user);
+        IssuedTokens tokens = jwtService.issueTokens(user, UUID.randomUUID());
 
         ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
         verify(refreshTokenRepository).save(captor.capture());
@@ -83,6 +83,7 @@ class JwtServiceTest {
                 .isEqualTo(jwtService.hashRefreshToken(tokens.refreshToken()))
                 .hasSize(64);
         assertThat(stored.getUser()).isEqualTo(user);
+        assertThat(stored.getFamilyId()).isNotNull();
         assertThat(stored.getExpiresAt()).isAfter(Instant.now().plus(Duration.ofDays(29)));
         assertThat(stored.isRevoked()).isFalse();
     }

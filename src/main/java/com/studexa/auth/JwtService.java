@@ -2,6 +2,7 @@ package com.studexa.auth;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.UUID;
 
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
@@ -32,7 +33,7 @@ public class JwtService {
         this.clock = clock;
     }
 
-    public IssuedTokens issueTokens(User user) {
+    public IssuedTokens issueTokens(User user, UUID familyId) {
         Instant now = clock.instant();
         Instant accessExpiresAt = now.plus(properties.accessTokenTtl());
 
@@ -52,6 +53,7 @@ public class JwtService {
         refreshTokenRepository.save(new RefreshToken(
                 user,
                 TokenHasher.sha256(rawRefreshToken),
+                familyId,
                 refreshExpiresAt));
 
         return new IssuedTokens(

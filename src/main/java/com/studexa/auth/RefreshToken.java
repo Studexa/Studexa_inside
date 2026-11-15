@@ -17,6 +17,8 @@ import jakarta.persistence.Table;
 
 /**
  * A rotating refresh token. Only the SHA-256 hash of the raw token is stored.
+ * Tokens belong to a family (identified by {@code family_id}); reusing a
+ * revoked token revokes the entire family.
  */
 @Entity
 @Table(name = "refresh_tokens")
@@ -33,6 +35,9 @@ public class RefreshToken {
     @Column(name = "token_hash", nullable = false, unique = true, length = 64)
     private String tokenHash;
 
+    @Column(name = "family_id")
+    private UUID familyId;
+
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
@@ -45,9 +50,10 @@ public class RefreshToken {
     public RefreshToken() {
     }
 
-    public RefreshToken(User user, String tokenHash, Instant expiresAt) {
+    public RefreshToken(User user, String tokenHash, UUID familyId, Instant expiresAt) {
         this.user = user;
         this.tokenHash = tokenHash;
+        this.familyId = familyId;
         this.expiresAt = expiresAt;
         this.revoked = false;
         this.createdAt = Instant.now();
@@ -63,6 +69,14 @@ public class RefreshToken {
 
     public void setId(UUID id) {
         this.id = id;
+    }
+
+    public UUID getFamilyId() {
+        return familyId;
+    }
+
+    public void setFamilyId(UUID familyId) {
+        this.familyId = familyId;
     }
 
     public User getUser() {
