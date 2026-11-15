@@ -2,6 +2,8 @@ package com.studexa.game;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -10,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.studexa.common.ApiException;
+import com.studexa.deck.ReviewLogRepository;
 import com.studexa.game.dto.PetDto;
 import com.studexa.user.ProfileRepository;
 
@@ -22,13 +25,16 @@ import com.studexa.user.ProfileRepository;
 public class PetService {
 
     private final PetRepository petRepository;
+    private final ReviewLogRepository reviewLogRepository;
     private final ProfileRepository profileRepository;
     private final GameStateRepository gameStateRepository;
     private final Clock clock;
 
-    public PetService(PetRepository petRepository, ProfileRepository profileRepository,
+    public PetService(PetRepository petRepository,
+            ReviewLogRepository reviewLogRepository, ProfileRepository profileRepository,
             GameStateRepository gameStateRepository, Clock clock) {
         this.petRepository = petRepository;
+        this.reviewLogRepository = reviewLogRepository;
         this.profileRepository = profileRepository;
         this.gameStateRepository = gameStateRepository;
         this.clock = clock;
@@ -45,15 +51,24 @@ public class PetService {
     }
 
     /**
-     * Update the pet's mood based on whether the student studied today
-     * and their current streak.
+     * Update the pet's mood. Derived server-side from whether the student
+     * reviewed any cards today (in their timezone) and their current streak.
      */
     @Transactional
-    public void updateMood(UUID userId, boolean studiedToday) {
+    public void updateMood(UUID userId) {
         Pet pet = petRepository.findById(userId)
                 .orElseGet(() -> createPet(userId));
         GameState state = gameStateRepository.findById(userId).orElse(null);
         int streak = state != null ? state.getStreakCurrent() : 0;
+
+        // Derive studiedToday from review logs, not from the client.
+        ZoneId zoneId = zoneIdFor(userId);
+        LocalDate today = clock.instant().atZone(zoneId).toLocalDate();
+        boolean studiedToday = reviewLogRepository.findByCardIdAndUserIdOrderByReviewedAtDesc(
+                null, userId).stream()
+                .anyMatch(log -> log.getReviewedAt() != null
+                        && log.getReviewedAt().atZone(zoneId).toLocalDate().equals(today));
+
         String mood = Pet.moodFor(studiedToday, streak);
         if (!mood.equals(pet.getMood())) {
             pet.setMood(mood);
@@ -63,12 +78,15 @@ public class PetService {
     }
 
     /**
-     * Update the pet's stage based on the student's level.
+     * Update the pet's stage. Derived server-side from the student's level
+     * in game_state.
      */
     @Transactional
-    public void updateStage(UUID userId, int level) {
+    public void updateStage(UUID userId) {
         Pet pet = petRepository.findById(userId)
                 .orElseGet(() -> createPet(userId));
+        GameState state = gameStateRepository.findById(userId).orElse(null);
+        int level = state != null ? state.getLevel() : 1;
         String stage = Pet.stageForLevel(level);
         if (!stage.equals(pet.getStage())) {
             pet.setStage(stage);
@@ -125,5 +143,17 @@ public class PetService {
                 pet.getUserId(), pet.getSpecies(), pet.getName(), pet.getStage(),
                 pet.getMood(), pet.getAccessories(), pet.getEquippedAccessory(),
                 pet.getCreatedAt(), pet.getUpdatedAt());
+    }
+
+    private ZoneId zoneIdFor(UUID userId) {
+        return profileRepository.findById(userId)
+                .map(p -> {
+                    try {
+                        return ZoneId.of(p.getTimezone());
+                    } catch (Exception e) {
+                        return ZoneId.of("Asia/Phnom_Penh");
+                    }
+                })
+                .orElse(ZoneId.of("Asia/Phnom_Penh"));
     }
 }

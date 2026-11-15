@@ -30,6 +30,9 @@ public class XpEvent {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Column(name = "reversed", nullable = false)
+    private boolean reversed;
+
     public XpEvent() {
     }
 
@@ -81,6 +84,14 @@ public class XpEvent {
         this.createdAt = createdAt;
     }
 
+    public boolean isReversed() {
+        return reversed;
+    }
+
+    public void setReversed(boolean reversed) {
+        this.reversed = reversed;
+    }
+
     public static XpEvent create(UUID id, UUID userId, String source, int amount,
             UUID referenceId, Instant now) {
         XpEvent event = new XpEvent();
@@ -90,6 +101,7 @@ public class XpEvent {
         event.amount = amount;
         event.referenceId = referenceId;
         event.createdAt = now;
+        event.reversed = false;
         return event;
     }
 }

@@ -161,22 +161,6 @@ public class ReviewService {
         CardState next = scheduler.schedule(current, rating, now);
         Map<Rating, String> labels = scheduler.previewLabels(next);
 
-        ReviewLog log = ReviewLog.create(
-                UUID.randomUUID(), clientReviewId, cardId, userId,
-                request.rating().name(), now, request.msTaken(), 0,
-                progress, current);
-
-        progress.setEase(next.ease());
-        progress.setIntervalDays(next.intervalDays());
-        progress.setReps(next.reps());
-        progress.setLapses(next.lapses());
-        progress.setDueAt(next.dueAt());
-        progress.setState(next.state().name());
-        progress.setLastReviewedAt(now);
-
-        progressRepository.save(progress);
-        reviewLogRepository.save(log);
-
         // Award XP through the secure server-side game engine.
         AwardResult award = gameService.awardXp(userId, "review_card", 3, clientReviewId,
                 Map.of("reviewsForCardToday", countReviewsForCardToday(userId, cardId)));
@@ -192,6 +176,22 @@ public class ReviewService {
         }
 
         int totalXp = award.xpAwarded() + bonusXp;
+
+        ReviewLog log = ReviewLog.create(
+                UUID.randomUUID(), clientReviewId, cardId, userId,
+                request.rating().name(), now, request.msTaken(), totalXp,
+                progress, current);
+
+        progress.setEase(next.ease());
+        progress.setIntervalDays(next.intervalDays());
+        progress.setReps(next.reps());
+        progress.setLapses(next.lapses());
+        progress.setDueAt(next.dueAt());
+        progress.setState(next.state().name());
+        progress.setLastReviewedAt(now);
+
+        progressRepository.save(progress);
+        reviewLogRepository.save(log);
 
         return new ReviewAnswerResponse(
                 card.getId(), card.getDeckId(), card.getType(),
@@ -225,6 +225,9 @@ public class ReviewService {
 
         progressRepository.save(progress);
         reviewLogRepository.delete(last);
+
+        // Reverse the XP awarded for this review, if any.
+        gameService.reverseXp(userId, last.getClientReviewId());
 
         CardState state = toCardState(progress);
         Map<Rating, String> labels = scheduler.previewLabels(state);

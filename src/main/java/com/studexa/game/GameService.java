@@ -211,6 +211,37 @@ public class GameService {
     }
 
     /**
+     * Reverses XP awarded for a specific reference (e.g. when a review is undone).
+     * Marks the associated XP events as reversed and deducts the amounts from
+     * the student's game state. Does not handle level-down — XP is simply
+     * subtracted, which may leave xpInLevel below zero until the next review.
+     * Returns the total XP reversed, or 0 if nothing was reversed.
+     */
+    @Transactional
+    public int reverseXp(UUID userId, UUID referenceId) {
+        List<XpEvent> events = xpEventRepository.findByUserIdAndReferenceIdAndReversedFalse(userId, referenceId);
+        if (events.isEmpty()) {
+            return 0;
+        }
+
+        int totalReversed = events.stream().mapToInt(XpEvent::getAmount).sum();
+
+        GameState state = lockState(userId);
+        state.setXpTotal(Math.max(0, state.getXpTotal() - totalReversed));
+        state.setDailyXpToday(Math.max(0, state.getDailyXpToday() - totalReversed));
+        // xpInLevel may go negative; it self-corrects on the next review.
+        state.setXpInLevel(Math.max(0, state.getXpInLevel() - totalReversed));
+        state.setUpdatedAt(clock.instant());
+        gameStateRepository.save(state);
+
+        events.forEach(e -> e.setReversed(true));
+        xpEventRepository.saveAll(events);
+        entityManager.flush();
+
+        return totalReversed;
+    }
+
+    /**
      * Returns all badges with earned status for a user.
      */
     @Transactional(readOnly = true)

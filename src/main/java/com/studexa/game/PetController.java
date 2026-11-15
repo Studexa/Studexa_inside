@@ -18,8 +18,6 @@ import com.studexa.common.CurrentUser;
 import com.studexa.game.dto.PetDto;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 @RestController
@@ -38,21 +36,20 @@ public class PetController {
     }
 
     /**
-     * Update the pet's mood. Called after study activity.
+     * Update the pet's mood. Derived server-side from the student's study
+     * activity today (reviews in their timezone).
      */
     @PostMapping("/mood")
-    public void updateMood(@AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody UpdateMoodRequest request) {
-        petService.updateMood(CurrentUser.id(jwt), request.studiedToday());
+    public void updateMood(@AuthenticationPrincipal Jwt jwt) {
+        petService.updateMood(CurrentUser.id(jwt));
     }
 
     /**
-     * Update the pet's stage. Called when level changes.
+     * Update the pet's stage. Derived server-side from the student's level.
      */
     @PostMapping("/stage")
-    public void updateStage(@AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody UpdateStageRequest request) {
-        petService.updateStage(CurrentUser.id(jwt), request.level());
+    public void updateStage(@AuthenticationPrincipal Jwt jwt) {
+        petService.updateStage(CurrentUser.id(jwt));
     }
 
     /**
@@ -75,17 +72,11 @@ public class PetController {
         petService.equipAccessory(CurrentUser.id(jwt), request.accessoryType());
     }
 
-    public record UpdateMoodRequest(@NotNull Boolean studiedToday) {
-    }
-
-    public record UpdateStageRequest(@NotNull Integer level) {
+    public record EquipAccessoryRequest(String accessoryType) {
     }
 
     public record RenamePetRequest(
             @Size(min = 1, max = 50, message = "Pet name must be 1 to 50 characters.")
             String name) {
-    }
-
-    public record EquipAccessoryRequest(String accessoryType) {
     }
 }

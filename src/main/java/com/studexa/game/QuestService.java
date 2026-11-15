@@ -31,6 +31,7 @@ import com.studexa.user.ProfileRepository;
 public class QuestService {
 
     private final QuestRepository questRepository;
+    private final QuestEventRepository questEventRepository;
     private final GameService gameService;
     private final ProfileRepository profileRepository;
     private final Clock clock;
@@ -39,9 +40,11 @@ public class QuestService {
     // under concurrent first-request-of-the-day load.
     private static final Map<UUID, Object> creationLocks = new ConcurrentHashMap<>();
 
-    public QuestService(QuestRepository questRepository, GameService gameService,
+    public QuestService(QuestRepository questRepository,
+            QuestEventRepository questEventRepository, GameService gameService,
             ProfileRepository profileRepository, Clock clock) {
         this.questRepository = questRepository;
+        this.questEventRepository = questEventRepository;
         this.gameService = gameService;
         this.profileRepository = profileRepository;
         this.clock = clock;
@@ -87,9 +90,13 @@ public class QuestService {
     /**
      * Update progress on a quest by code. Idempotent via {@code referenceId}.
      * Awards XP and coins through {@link GameService} when a quest completes.
+     * <p>
+     * The amount is derived server-side from the source; the client must not
+     * send it. Each source maps to a fixed increment of 1 per call.
      */
     @Transactional
-    public void addProgress(UUID userId, String code, int amount, String source, UUID referenceId) {
+    public void addProgress(UUID userId, String code, String source, UUID referenceId) {
+        int amount = amountForSource(source);
         if (amount <= 0) {
             return;
         }
@@ -125,6 +132,17 @@ public class QuestService {
         }
 
         recordQuestEvent(userId, quest.getId(), source, referenceId);
+    }
+
+    /**
+     * Derives the quest progress increment from the event source. The client
+     * must not be able to inflate progress, so each source maps to exactly 1.
+     */
+    private static int amountForSource(String source) {
+        return switch (source) {
+            case "review_card", "focus_session", "note_create", "mini_game" -> 1;
+            default -> 0;
+        };
     }
 
     /* ---------------------------------------------------------------- */
@@ -192,12 +210,20 @@ public class QuestService {
     }
 
     private boolean alreadyApplied(UUID userId, UUID questId, String source, UUID referenceId) {
-        // Placeholder: in production, check quest_events table.
-        return false;
+        if (referenceId == null) {
+            return false;
+        }
+        return questEventRepository.existsByUserIdAndQuestIdAndSourceAndReferenceId(
+                userId, questId, source, referenceId);
     }
 
     private void recordQuestEvent(UUID userId, UUID questId, String source, UUID referenceId) {
-        // Placeholder: in production, insert into quest_events for idempotency.
+        if (referenceId == null) {
+            return;
+        }
+        QuestEvent event = QuestEvent.create(
+                UUID.randomUUID(), userId, questId, source, referenceId, clock.instant());
+        questEventRepository.save(event);
     }
 
     private QuestDto toDto(Quest quest) {

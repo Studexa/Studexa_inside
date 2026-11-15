@@ -40,22 +40,22 @@ public class QuestController {
 
     /**
      * Report progress on a quest. Called by the frontend after study actions
-     * (reviews, focus sessions, notes, mini-games).
+     * (reviews, focus sessions, notes, mini-games). The amount is derived
+     * server-side from the source; the client must not send it.
      */
     @PostMapping("/progress")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void addProgress(@AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody QuestProgressRequest request) {
         questService.addProgress(
-                CurrentUser.id(jwt), request.code(), request.amount(),
-                request.source(), request.referenceId() != null
+                CurrentUser.id(jwt), request.code(), request.source(),
+                request.referenceId() != null
                         ? UUID.fromString(request.referenceId())
                         : null);
     }
 
     public record QuestProgressRequest(
             @NotBlank String code,
-            int amount,
             @NotBlank String source,
             String referenceId) {
     }
