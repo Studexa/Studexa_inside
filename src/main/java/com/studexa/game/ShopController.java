@@ -12,6 +12,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.studexa.common.CurrentUser;
+import com.studexa.game.dto.ShopItemDto;
+import com.studexa.game.dto.ShopPurchaseResult;
+import com.studexa.game.dto.UserShopItemDto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

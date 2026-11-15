@@ -65,8 +65,9 @@ public class GameService {
 
     /**
      * Returns the current game state for a user, creating it on first access.
+     * NOT readOnly because {@code save} may be called if the row does not exist yet.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public GameStateDto getState(UUID userId) {
         GameState state = gameStateRepository.findById(userId)
                 .orElseGet(() -> {
@@ -142,16 +143,17 @@ public class GameService {
         state.setUpdatedAt(clock.instant());
 
         // Level-up loop.
+        // 'xpInLevel' tracks how much XP the student has in the current level.
+        // We carry a running 'xpCarry' so the while condition does not double-count
+        // after the first level-up (setXpInLevel already reflects the carry).
         int levelsGained = 0;
-        while (state.getXpInLevel() + totalXp >= properties.xpToNextLevel(state.getLevel())) {
-            totalXp = (int) (state.getXpInLevel() + totalXp - properties.xpToNextLevel(state.getLevel()));
+        long xpCarry = state.getXpInLevel() + totalXp;
+        while (xpCarry >= properties.xpToNextLevel(state.getLevel())) {
+            xpCarry -= properties.xpToNextLevel(state.getLevel());
             state.setLevel(state.getLevel() + 1);
-            state.setXpInLevel(totalXp);
             levelsGained++;
         }
-        if (levelsGained == 0) {
-            state.setXpInLevel(state.getXpInLevel() + totalXp);
-        }
+        state.setXpInLevel((int) xpCarry);
 
         // Coins: 1 per 10 XP, plus level-up reward.
         int coinsEarned = awardable / properties.coinsPerTenXp();

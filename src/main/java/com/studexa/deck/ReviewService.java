@@ -325,7 +325,7 @@ public class ReviewService {
         ZoneId zoneId = profileRepository.findById(userId)
                 .map(p -> ZoneId.of(p.getTimezone()))
                 .orElse(ZoneId.systemDefault());
-        LocalDate today = LocalDate.now(zoneId);
+        LocalDate today = clock.instant().atZone(zoneId).toLocalDate();
         return reviewLogRepository.findByCardIdAndUserIdOrderByReviewedAtDesc(cardId, userId).stream()
                 .filter(log -> log.getReviewedAt() != null
                         && log.getReviewedAt().atZone(zoneId).toLocalDate().equals(today))

@@ -1,0 +1,205 @@
+[INFO] Scanning for projects...
+[INFO] Loaded 24474 auto-discovered prefixes for remote repository central (prefixes-central.txt)
+[INFO] 
+[INFO] ------------------------< com.studexa:studexa >-------------------------
+[INFO] Building studexa 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] Loaded 64 auto-discovered prefixes for remote repository apache.snapshots (prefixes-apache.snapshots.txt)
+[INFO] 
+[INFO] >>> spring-boot:4.1.2:run (default-cli) > test-compile @ studexa >>>
+[INFO] Loaded 24474 auto-discovered prefixes for remote repository maven-central (prefixes-maven-central.txt)
+[WARNING] Could not transfer metadata /.meta/prefixes.txt from/to flyway-community-db-support (https://maven.pkg.github.com/flyway/flyway-community-db-support): HTTP Status: 401
+[WARNING] Could not transfer metadata /.meta/prefixes.txt from/to MavenFeed (https://red-gate.pkgs.visualstudio.com/MavenFeed/_packaging/MavenFeed/maven/v1/): HTTP Status: 401
+[INFO] Loaded 7 auto-discovered prefixes for remote repository shibboleth-repo (prefixes-shibboleth-repo.txt)
+[INFO] Loaded 24474 auto-discovered prefixes for remote repository maven_central (prefixes-maven_central.txt)
+[INFO] 
+[INFO] --- resources:3.5.0:resources (default-resources) @ studexa ---
+[INFO] Copying 3 resources from src\main\resources to target\classes
+[INFO] Copying 46 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ studexa ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.5.0:testResources (default-testResources) @ studexa ---
+[INFO] Copying 1 resource from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ studexa ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 10 source files with javac [debug parameters release 21] to target\test-classes
+[INFO] 
+[INFO] <<< spring-boot:4.1.2:run (default-cli) < test-compile @ studexa <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:4.1.2:run (default-cli) @ studexa ---
+[INFO] Loaded 50 auto-discovered prefixes for remote repository ow2-snapshot (prefixes-ow2-snapshot.txt)
+[INFO] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.1.2)
+
+2026-11-14T21:57:59.374+07:00  INFO 15160 --- [studexa] [  restartedMain] com.studexa.StudexaApplication           : Starting StudexaApplication using Java 25.0.5 with PID 15160 (D:\Project\StudyProjectMiniWebApp\studyapp\backend\target\classes started by Feynman in D:\Project\StudyProjectMiniWebApp\studyapp\backend)
+2026-11-14T21:57:59.378+07:00 DEBUG 15160 --- [studexa] [  restartedMain] com.studexa.StudexaApplication           : Running with Spring Boot v4.1.2, Spring v7.0.10
+2026-11-14T21:57:59.380+07:00  INFO 15160 --- [studexa] [  restartedMain] com.studexa.StudexaApplication           : No active profile set, falling back to 1 default profile: "default"
+2026-11-14T21:57:59.499+07:00  INFO 15160 --- [studexa] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-11-14T21:57:59.500+07:00  INFO 15160 --- [studexa] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-11-14T21:58:02.268+07:00  INFO 15160 --- [studexa] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-11-14T21:58:02.453+07:00  INFO 15160 --- [studexa] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 166 ms. Found 18 JPA repository interfaces.
+2026-11-14T21:58:05.214+07:00  INFO 15160 --- [studexa] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8081 (http)
+2026-11-14T21:58:05.247+07:00  INFO 15160 --- [studexa] [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-14T21:58:05.261+07:00  INFO 15160 --- [studexa] [  restartedMain] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.27]
+2026-11-14T21:58:05.426+07:00  INFO 15160 --- [studexa] [  restartedMain] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 5926 ms
+2026-11-14T21:58:05.788+07:00  INFO 15160 --- [studexa] [  restartedMain] o.s.boot.web.servlet.RegistrationBean    : Filter authRateLimitFilterRegistration was not registered (disabled)
+2026-11-14T21:58:06.519+07:00  INFO 15160 --- [studexa] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-11-14T21:58:07.001+07:00  INFO 15160 --- [studexa] [  restartedMain] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@63d72a81
+2026-11-14T21:58:07.003+07:00  INFO 15160 --- [studexa] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-11-14T21:58:07.043+07:00  INFO 15160 --- [studexa] [  restartedMain] org.flywaydb.core.FlywayExecutor         : Database: jdbc:postgresql://localhost:5432/studexa (PostgreSQL 18.4)
+2026-11-14T21:58:07.218+07:00  INFO 15160 --- [studexa] [  restartedMain] o.f.core.internal.command.DbValidate     : Successfully validated 11 migrations (execution time 00:00.078s)
+2026-11-14T21:58:07.250+07:00  INFO 15160 --- [studexa] [  restartedMain] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 11
+2026-11-14T21:58:07.257+07:00  INFO 15160 --- [studexa] [  restartedMain] o.f.core.internal.command.DbMigrate      : Schema "public" is up to date. No migration necessary.
+2026-11-14T21:58:07.508+07:00  INFO 15160 --- [studexa] [  restartedMain] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-11-14T21:58:07.652+07:00  INFO 15160 --- [studexa] [  restartedMain] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.4.13.Final
+2026-11-14T21:58:08.909+07:00  INFO 15160 --- [studexa] [  restartedMain] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-11-14T21:58:09.110+07:00  INFO 15160 --- [studexa] [  restartedMain] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:postgresql://localhost:5432/studexa]
+	Database driver: PostgreSQL JDBC Driver
+	Database dialect: PostgreSQLDialect
+	Database version: 18.4
+	Default catalog/schema: studexa/public
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-11-14T21:58:11.957+07:00  INFO 15160 --- [studexa] [  restartedMain] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-11-14T21:58:12.089+07:00  INFO 15160 --- [studexa] [  restartedMain] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-11-14T21:58:12.818+07:00  INFO 15160 --- [studexa] [  restartedMain] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-11-14T21:58:16.023+07:00  INFO 15160 --- [studexa] [  restartedMain] o.s.b.w.a.WelcomePageHandlerMapping      : Adding welcome page: class path resource [static/index.html]
+2026-11-14T21:58:17.209+07:00  INFO 15160 --- [studexa] [  restartedMain] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 2 endpoints beneath base path '/actuator'
+2026-11-14T21:58:17.366+07:00  INFO 15160 --- [studexa] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8081 (http) with context path '/'
+2026-11-14T21:58:17.387+07:00  INFO 15160 --- [studexa] [  restartedMain] com.studexa.StudexaApplication           : Started StudexaApplication in 19.157 seconds (process running for 20.391)
+2026-11-14T21:58:17.607+07:00  WARN 15160 --- [studexa] [  restartedMain] o.s.core.events.SpringDocAppInitializer  : SpringDoc /v3/api-docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+2026-11-14T21:58:17.607+07:00  WARN 15160 --- [studexa] [  restartedMain] o.s.core.events.SpringDocAppInitializer  : SpringDoc /swagger-ui.html endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'
+2026-11-14T21:59:08.954+07:00  INFO 15160 --- [studexa] [omcat-handler-0] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-11-14T21:59:08.955+07:00  INFO 15160 --- [studexa] [omcat-handler-0] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-11-14T21:59:08.961+07:00  INFO 15160 --- [studexa] [omcat-handler-0] o.s.web.servlet.DispatcherServlet        : Completed initialization in 5 ms
+2026-11-14T22:06:42.779+07:00  INFO 15160 --- [studexa] [   File Watcher] rtingClassPathChangeChangedEventListener : Restarting due to 1 class path change (1 addition, 0 deletions, 0 modifications)
+2026-11-14T22:06:42.789+07:00  INFO 15160 --- [studexa] [       Thread-1] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-11-14T22:06:42.808+07:00  INFO 15160 --- [studexa] [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-11-14T22:06:42.823+07:00  INFO 15160 --- [studexa] [       Thread-1] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-11-14T22:06:42.829+07:00  INFO 15160 --- [studexa] [       Thread-1] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-11-14T22:06:42.845+07:00  INFO 15160 --- [studexa] [       Thread-1] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.1.2)
+
+2026-11-14T22:06:43.043+07:00  INFO 15160 --- [studexa] [  restartedMain] com.studexa.StudexaApplication           : Starting StudexaApplication using Java 25.0.5 with PID 15160 (D:\Project\StudyProjectMiniWebApp\studyapp\backend\target\classes started by Feynman in D:\Project\StudyProjectMiniWebApp\studyapp\backend)
+2026-11-14T22:06:43.044+07:00 DEBUG 15160 --- [studexa] [  restartedMain] com.studexa.StudexaApplication           : Running with Spring Boot v4.1.2, Spring v7.0.10
+2026-11-14T22:06:43.044+07:00  INFO 15160 --- [studexa] [  restartedMain] com.studexa.StudexaApplication           : No active profile set, falling back to 1 default profile: "default"
+2026-11-14T22:06:43.783+07:00  INFO 15160 --- [studexa] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-11-14T22:06:43.854+07:00  INFO 15160 --- [studexa] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 67 ms. Found 18 JPA repository interfaces.
+2026-11-14T22:06:44.227+07:00  INFO 15160 --- [studexa] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8081 (http)
+2026-11-14T22:06:44.231+07:00  INFO 15160 --- [studexa] [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-14T22:06:44.231+07:00  INFO 15160 --- [studexa] [  restartedMain] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.27]
+2026-11-14T22:06:44.304+07:00  INFO 15160 --- [studexa] [  restartedMain] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 1254 ms
+2026-11-14T22:06:44.426+07:00  INFO 15160 --- [studexa] [  restartedMain] o.s.boot.web.servlet.RegistrationBean    : Filter authRateLimitFilterRegistration was not registered (disabled)
+2026-11-14T22:06:44.514+07:00  INFO 15160 --- [studexa] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Starting...
+2026-11-14T22:06:44.611+07:00  INFO 15160 --- [studexa] [  restartedMain] com.zaxxer.hikari.pool.HikariPool        : HikariPool-2 - Added connection org.postgresql.jdbc.PgConnection@3f3c5387
+2026-11-14T22:06:44.611+07:00  INFO 15160 --- [studexa] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Start completed.
+2026-11-14T22:06:44.613+07:00  INFO 15160 --- [studexa] [  restartedMain] org.flywaydb.core.FlywayExecutor         : Database: jdbc:postgresql://localhost:5432/studexa (PostgreSQL 18.4)
+2026-11-14T22:06:44.682+07:00  INFO 15160 --- [studexa] [  restartedMain] o.f.core.internal.command.DbValidate     : Successfully validated 12 migrations (execution time 00:00.039s)
+2026-11-14T22:06:44.783+07:00  INFO 15160 --- [studexa] [  restartedMain] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 11
+2026-11-14T22:06:44.814+07:00  INFO 15160 --- [studexa] [  restartedMain] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "12 - quiz rooms questions sessions"
+2026-11-14T22:06:45.181+07:00  INFO 15160 --- [studexa] [  restartedMain] o.f.core.internal.command.DbMigrate      : Successfully applied 1 migration to schema "public", now at version v12 (execution time 00:00.351s)
+2026-11-14T22:06:45.234+07:00  INFO 15160 --- [studexa] [  restartedMain] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-11-14T22:06:45.312+07:00  INFO 15160 --- [studexa] [  restartedMain] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-11-14T22:06:45.343+07:00  INFO 15160 --- [studexa] [  restartedMain] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:postgresql://localhost:5432/studexa]
+	Database driver: PostgreSQL JDBC Driver
+	Database dialect: PostgreSQLDialect
+	Database version: 18.4
+	Default catalog/schema: studexa/public
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-11-14T22:06:46.028+07:00  INFO 15160 --- [studexa] [  restartedMain] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-11-14T22:06:46.077+07:00  INFO 15160 --- [studexa] [  restartedMain] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-11-14T22:06:47.054+07:00  INFO 15160 --- [studexa] [  restartedMain] o.s.b.w.a.WelcomePageHandlerMapping      : Adding welcome page: class path resource [static/index.html]
+2026-11-14T22:06:47.459+07:00  INFO 15160 --- [studexa] [  restartedMain] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 2 endpoints beneath base path '/actuator'
+2026-11-14T22:06:47.492+07:00  INFO 15160 --- [studexa] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8081 (http) with context path '/'
+2026-11-14T22:06:47.500+07:00  INFO 15160 --- [studexa] [  restartedMain] com.studexa.StudexaApplication           : Started StudexaApplication in 4.519 seconds (process running for 530.504)
+2026-11-14T22:06:47.502+07:00  WARN 15160 --- [studexa] [  restartedMain] o.s.core.events.SpringDocAppInitializer  : SpringDoc /v3/api-docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+2026-11-14T22:06:47.502+07:00  WARN 15160 --- [studexa] [  restartedMain] o.s.core.events.SpringDocAppInitializer  : SpringDoc /swagger-ui.html endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'
+2026-11-14T22:06:47.506+07:00  INFO 15160 --- [studexa] [  restartedMain] .ConditionEvaluationDeltaLoggingListener : Condition evaluation unchanged
+2026-11-14T22:07:13.891+07:00  INFO 15160 --- [studexa] [   File Watcher] rtingClassPathChangeChangedEventListener : Restarting due to 208 class path changes (0 additions, 208 deletions, 0 modifications)
+2026-11-14T22:07:13.893+07:00  INFO 15160 --- [studexa] [       Thread-5] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-11-14T22:07:13.912+07:00  INFO 15160 --- [studexa] [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-11-14T22:07:13.919+07:00  INFO 15160 --- [studexa] [       Thread-5] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-11-14T22:07:13.920+07:00  INFO 15160 --- [studexa] [       Thread-5] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown initiated...
+2026-11-14T22:07:13.930+07:00  INFO 15160 --- [studexa] [       Thread-5] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown completed.
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.1.2)
+
+2026-11-14T22:07:14.088+07:00  INFO 15160 --- [studexa] [  restartedMain] com.studexa.StudexaApplication           : Starting StudexaApplication using Java 25.0.5 with PID 15160 (D:\Project\StudyProjectMiniWebApp\studyapp\backend\target\classes started by Feynman in D:\Project\StudyProjectMiniWebApp\studyapp\backend)
+2026-11-14T22:07:14.088+07:00  INFO 15160 --- [studexa] [  restartedMain] com.studexa.StudexaApplication           : No active profile set, falling back to 1 default profile: "default"
+2026-11-14T22:07:14.091+07:00  WARN 15160 --- [studexa] [  restartedMain] o.s.core.annotation.MergedAnnotation     : Failed to introspect meta-annotation @EnableConfigurationProperties on class com.studexa.StudexaApplication: java.lang.TypeNotPresentException: Type com.studexa.game.GameProperties not present
+2026-11-14T22:07:14.096+07:00  WARN 15160 --- [studexa] [  restartedMain] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanDefinitionStoreException: I/O failure while processing configuration class [null]
+2026-11-14T22:07:14.133+07:00 ERROR 15160 --- [studexa] [  restartedMain] o.s.boot.SpringApplication               : Application run failed
+
+org.springframework.beans.factory.BeanDefinitionStoreException: I/O failure while processing configuration class [null]
+	at org.springframework.context.annotation.ConfigurationClassParser.processConfigurationClass(ConfigurationClassParser.java:290) ~[spring-context-7.0.10.jar:7.0.10]
+	at org.springframework.context.annotation.ConfigurationClassParser.parse(ConfigurationClassParser.java:206) ~[spring-context-7.0.10.jar:7.0.10]
+	at org.springframework.context.annotation.ConfigurationClassParser.parse(ConfigurationClassParser.java:174) ~[spring-context-7.0.10.jar:7.0.10]
+	at org.springframework.context.annotation.ConfigurationClassPostProcessor.processConfigBeanDefinitions(ConfigurationClassPostProcessor.java:452) ~[spring-context-7.0.10.jar:7.0.10]
+	at org.springframework.context.annotation.ConfigurationClassPostProcessor.postProcessBeanDefinitionRegistry(ConfigurationClassPostProcessor.java:316) ~[spring-context-7.0.10.jar:7.0.10]
+	at org.springframework.context.support.PostProcessorRegistrationDelegate.invokeBeanDefinitionRegistryPostProcessors(PostProcessorRegistrationDelegate.java:349) ~[spring-context-7.0.10.jar:7.0.10]
+	at org.springframework.context.support.PostProcessorRegistrationDelegate.invokeBeanFactoryPostProcessors(PostProcessorRegistrationDelegate.java:118) ~[spring-context-7.0.10.jar:7.0.10]
+	at org.springframework.context.support.AbstractApplicationContext.invokeBeanFactoryPostProcessors(AbstractApplicationContext.java:795) ~[spring-context-7.0.10.jar:7.0.10]
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:603) ~[spring-context-7.0.10.jar:7.0.10]
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:131) ~[spring-boot-web-server-4.1.2.jar:4.1.2]
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:744) ~[spring-boot-4.1.2.jar:4.1.2]
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:433) ~[spring-boot-4.1.2.jar:4.1.2]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:309) ~[spring-boot-4.1.2.jar:4.1.2]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1353) ~[spring-boot-4.1.2.jar:4.1.2]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1342) ~[spring-boot-4.1.2.jar:4.1.2]
+	at com.studexa.StudexaApplication.main(StudexaApplication.java:14) ~[classes/:na]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:565) ~[na:na]
+	at org.springframework.boot.devtools.restart.RestartLauncher.run(RestartLauncher.java:40) ~[spring-boot-devtools-4.1.2.jar:4.1.2]
+Caused by: java.io.FileNotFoundException: class path resource [com/studexa/StudexaApplication.class] cannot be opened because it does not exist
+	at org.springframework.core.io.ClassPathResource.getInputStream(ClassPathResource.java:212) ~[spring-core-7.0.10.jar:7.0.10]
+	at org.springframework.core.type.classreading.ClassFileMetadataReader.parseClassModel(ClassFileMetadataReader.java:49) ~[spring-core-7.0.10.jar:7.0.10]
+	at org.springframework.core.type.classreading.ClassFileMetadataReader.<init>(ClassFileMetadataReader.java:45) ~[spring-core-7.0.10.jar:7.0.10]
+	at org.springframework.core.type.classreading.ClassFileMetadataReaderFactory.getMetadataReader(ClassFileMetadataReaderFactory.java:62) ~[spring-core-7.0.10.jar:7.0.10]
+	at org.springframework.core.type.classreading.CachingMetadataReaderFactory.getMetadataReader(CachingMetadataReaderFactory.java:127) ~[spring-core-7.0.10.jar:7.0.10]
+	at org.springframework.core.type.classreading.AbstractMetadataReaderFactory.getMetadataReader(AbstractMetadataReaderFactory.java:62) ~[spring-core-7.0.10.jar:7.0.10]
+	at org.springframework.core.type.classreading.CachingMetadataReaderFactory.getMetadataReader(CachingMetadataReaderFactory.java:40) ~[spring-core-7.0.10.jar:7.0.10]
+	at org.springframework.context.annotation.ConfigurationClassParser.asSourceClass(ConfigurationClassParser.java:730) ~[spring-context-7.0.10.jar:7.0.10]
+	at org.springframework.context.annotation.ConfigurationClassParser.asSourceClass(ConfigurationClassParser.java:696) ~[spring-context-7.0.10.jar:7.0.10]
+	at org.springframework.context.annotation.ConfigurationClassParser.asSourceClass(ConfigurationClassParser.java:674) ~[spring-context-7.0.10.jar:7.0.10]
+	at org.springframework.context.annotation.ConfigurationClassParser.processConfigurationClass(ConfigurationClassParser.java:283) ~[spring-context-7.0.10.jar:7.0.10]
+	... 18 common frames omitted
+

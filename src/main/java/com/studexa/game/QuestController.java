@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.studexa.common.CurrentUser;
+import com.studexa.game.dto.QuestDto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

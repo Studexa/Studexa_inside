@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.studexa.common.ApiException;
+import com.studexa.game.dto.PetDto;
 import com.studexa.user.ProfileRepository;
 
 /**

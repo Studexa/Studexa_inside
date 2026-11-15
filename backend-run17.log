@@ -1,0 +1,97 @@
+[INFO] Scanning for projects...
+[INFO] Loaded 24474 auto-discovered prefixes for remote repository central (prefixes-central.txt)
+[INFO] 
+[INFO] ------------------------< com.studexa:studexa >-------------------------
+[INFO] Building studexa 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] Loaded 64 auto-discovered prefixes for remote repository apache.snapshots (prefixes-apache.snapshots.txt)
+[INFO] 
+[INFO] >>> spring-boot:4.1.2:run (default-cli) > test-compile @ studexa >>>
+[INFO] Loaded 24474 auto-discovered prefixes for remote repository maven-central (prefixes-maven-central.txt)
+[WARNING] Could not transfer metadata /.meta/prefixes.txt from/to flyway-community-db-support (https://maven.pkg.github.com/flyway/flyway-community-db-support): HTTP Status: 401
+[WARNING] Could not transfer metadata /.meta/prefixes.txt from/to MavenFeed (https://red-gate.pkgs.visualstudio.com/MavenFeed/_packaging/MavenFeed/maven/v1/): HTTP Status: 401
+[INFO] Loaded 7 auto-discovered prefixes for remote repository shibboleth-repo (prefixes-shibboleth-repo.txt)
+[INFO] Loaded 24474 auto-discovered prefixes for remote repository maven_central (prefixes-maven_central.txt)
+[INFO] 
+[INFO] --- resources:3.5.0:resources (default-resources) @ studexa ---
+[INFO] Copying 3 resources from src\main\resources to target\classes
+[INFO] Copying 47 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ studexa ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.5.0:testResources (default-testResources) @ studexa ---
+[INFO] Copying 1 resource from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ studexa ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] <<< spring-boot:4.1.2:run (default-cli) < test-compile @ studexa <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:4.1.2:run (default-cli) @ studexa ---
+[INFO] Loaded 50 auto-discovered prefixes for remote repository ow2-snapshot (prefixes-ow2-snapshot.txt)
+[INFO] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.1.2)
+
+2026-11-14T22:57:34.079+07:00  INFO 15624 --- [studexa] [  restartedMain] com.studexa.StudexaApplication           : Starting StudexaApplication using Java 25.0.5 with PID 15624 (D:\Project\StudyProjectMiniWebApp\studyapp\backend\target\classes started by Feynman in D:\Project\StudyProjectMiniWebApp\studyapp\backend)
+2026-11-14T22:57:34.085+07:00 DEBUG 15624 --- [studexa] [  restartedMain] com.studexa.StudexaApplication           : Running with Spring Boot v4.1.2, Spring v7.0.10
+2026-11-14T22:57:34.086+07:00  INFO 15624 --- [studexa] [  restartedMain] com.studexa.StudexaApplication           : No active profile set, falling back to 1 default profile: "default"
+2026-11-14T22:57:34.206+07:00  INFO 15624 --- [studexa] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-11-14T22:57:34.206+07:00  INFO 15624 --- [studexa] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-11-14T22:57:36.570+07:00  INFO 15624 --- [studexa] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-11-14T22:57:36.770+07:00  INFO 15624 --- [studexa] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 182 ms. Found 24 JPA repository interfaces.
+2026-11-14T22:57:38.167+07:00  INFO 15624 --- [studexa] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8081 (http)
+2026-11-14T22:57:38.189+07:00  INFO 15624 --- [studexa] [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-14T22:57:38.189+07:00  INFO 15624 --- [studexa] [  restartedMain] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.27]
+2026-11-14T22:57:38.296+07:00  INFO 15624 --- [studexa] [  restartedMain] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 4089 ms
+2026-11-14T22:57:38.522+07:00  INFO 15624 --- [studexa] [  restartedMain] o.s.boot.web.servlet.RegistrationBean    : Filter authRateLimitFilterRegistration was not registered (disabled)
+2026-11-14T22:57:38.940+07:00  INFO 15624 --- [studexa] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-11-14T22:57:39.312+07:00  INFO 15624 --- [studexa] [  restartedMain] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@5b43f5b4
+2026-11-14T22:57:39.315+07:00  INFO 15624 --- [studexa] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-11-14T22:57:39.355+07:00  INFO 15624 --- [studexa] [  restartedMain] org.flywaydb.core.FlywayExecutor         : Database: jdbc:postgresql://localhost:5432/studexa (PostgreSQL 18.4)
+2026-11-14T22:57:39.506+07:00  INFO 15624 --- [studexa] [  restartedMain] o.f.core.internal.command.DbValidate     : Successfully validated 12 migrations (execution time 00:00.071s)
+2026-11-14T22:57:39.634+07:00  INFO 15624 --- [studexa] [  restartedMain] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 12
+2026-11-14T22:57:39.639+07:00  INFO 15624 --- [studexa] [  restartedMain] o.f.core.internal.command.DbMigrate      : Schema "public" is up to date. No migration necessary.
+2026-11-14T22:57:39.850+07:00  INFO 15624 --- [studexa] [  restartedMain] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-11-14T22:57:39.953+07:00  INFO 15624 --- [studexa] [  restartedMain] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.4.13.Final
+2026-11-14T22:57:40.787+07:00  INFO 15624 --- [studexa] [  restartedMain] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-11-14T22:57:40.943+07:00  INFO 15624 --- [studexa] [  restartedMain] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:postgresql://localhost:5432/studexa]
+	Database driver: PostgreSQL JDBC Driver
+	Database dialect: PostgreSQLDialect
+	Database version: 18.4
+	Default catalog/schema: studexa/public
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-11-14T22:57:43.288+07:00  INFO 15624 --- [studexa] [  restartedMain] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-11-14T22:57:43.386+07:00  INFO 15624 --- [studexa] [  restartedMain] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-11-14T22:57:43.897+07:00  INFO 15624 --- [studexa] [  restartedMain] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-11-14T22:57:46.871+07:00  INFO 15624 --- [studexa] [  restartedMain] o.s.b.w.a.WelcomePageHandlerMapping      : Adding welcome page: class path resource [static/index.html]
+2026-11-14T22:57:47.985+07:00  INFO 15624 --- [studexa] [  restartedMain] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 2 endpoints beneath base path '/actuator'
+2026-11-14T22:57:48.095+07:00  INFO 15624 --- [studexa] [  restartedMain] o.s.m.s.b.SimpleBrokerMessageHandler     : Starting...
+2026-11-14T22:57:48.097+07:00  INFO 15624 --- [studexa] [  restartedMain] o.s.m.s.b.SimpleBrokerMessageHandler     : BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@66837ab4]]
+2026-11-14T22:57:48.099+07:00  INFO 15624 --- [studexa] [  restartedMain] o.s.m.s.b.SimpleBrokerMessageHandler     : Started.
+2026-11-14T22:57:48.112+07:00  INFO 15624 --- [studexa] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8081 (http) with context path '/'
+2026-11-14T22:57:48.132+07:00  INFO 15624 --- [studexa] [  restartedMain] com.studexa.StudexaApplication           : Started StudexaApplication in 14.893 seconds (process running for 15.971)
+2026-11-14T22:57:48.250+07:00  WARN 15624 --- [studexa] [  restartedMain] o.s.core.events.SpringDocAppInitializer  : SpringDoc /v3/api-docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+2026-11-14T22:57:48.251+07:00  WARN 15624 --- [studexa] [  restartedMain] o.s.core.events.SpringDocAppInitializer  : SpringDoc /swagger-ui.html endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'
+2026-11-14T22:58:48.035+07:00  INFO 15624 --- [studexa] [MessageBroker-1] o.s.w.s.c.WebSocketMessageBrokerStats    : WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 0 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(0)-CONNECTED(0)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 0], outboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 0], sockJsScheduler[pool size = 1, active threads = 1, queued tasks = 0, completed tasks = 0]
+2026-11-14T22:59:02.681+07:00  INFO 15624 --- [studexa] [omcat-handler-0] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-11-14T22:59:02.682+07:00  INFO 15624 --- [studexa] [omcat-handler-0] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-11-14T22:59:02.685+07:00  INFO 15624 --- [studexa] [omcat-handler-0] o.s.web.servlet.DispatcherServlet        : Completed initialization in 3 ms
+2026-11-14T22:59:03.723+07:00  WARN 15624 --- [studexa] [omcat-handler-1] .m.m.a.ExceptionHandlerExceptionResolver : Resolved [com.studexa.common.ApiException: AI is not configured yet. Add ANTHROPIC_API_KEY to the backend environment.]
+2026-11-14T22:59:03.824+07:00  WARN 15624 --- [studexa] [omcat-handler-2] .m.m.a.ExceptionHandlerExceptionResolver : Resolved [com.studexa.common.ApiException: AI is not configured yet. Add ANTHROPIC_API_KEY to the backend environment.]

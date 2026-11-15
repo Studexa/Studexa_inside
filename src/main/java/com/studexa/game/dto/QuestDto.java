@@ -1,4 +1,4 @@
-package com.studexa.game;
+package com.studexa.game.dto;
 
 import java.time.LocalDate;
 import java.util.UUID;

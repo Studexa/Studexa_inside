@@ -33,6 +33,8 @@ app:
     streak-freeze-cost: 50
     max-freezes-held: 2
     coins-per-ten-xp: 1
+    coins-per-level-up: 10
+    badge-seed: []
     too-fast-threshold-ms: 800
     too-fast-consecutive-count: 10
     offline-max-days-ago: 7

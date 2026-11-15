@@ -1,7 +1,6 @@
 package com.studexa.game;
 
 import java.time.Clock;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -10,6 +9,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.studexa.common.ApiException;
+import com.studexa.game.dto.ShopItemDto;
+import com.studexa.game.dto.ShopPurchaseResult;
+import com.studexa.game.dto.UserShopItemDto;
 
 /**
  * Coin shop service. Validates coin balance and ownership on the server.
@@ -84,20 +86,18 @@ public class ShopService {
         }
 
         // Record the purchase.
-        UserShopItem purchase = new UserShopItem(userId, shopItemId, Instant.now());
+        UserShopItem purchase = new UserShopItem(userId, shopItemId, clock.instant());
         userShopItemRepository.save(purchase);
 
-        // Deduct coins under the same lock (row already locked above).
-        state.setCoins(state.getCoins() - item.getPrice());
-        state.setUpdatedAt(clock.instant());
-        gameStateRepository.save(state);
-
+        // Deduct coins and apply freeze under the same lock.
         boolean isFreeze = false;
         if ("freeze".equals(item.getKind())) {
             state.setStreakFreezes(state.getStreakFreezes() + 1);
-            gameStateRepository.save(state);
             isFreeze = true;
         }
+        state.setCoins(state.getCoins() - item.getPrice());
+        state.setUpdatedAt(clock.instant());
+        gameStateRepository.save(state);
 
         return new ShopPurchaseResult(shopItemId, item.getPrice(), state.getCoins(), isFreeze);
     }

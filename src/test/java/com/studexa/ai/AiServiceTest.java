@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +35,8 @@ class AiServiceTest {
     @Mock
     private AiClient aiClient;
     @Mock
+    private List<AiClient> aiClients;
+    @Mock
     private AiUsageRepository usageRepository;
     @Mock
     private DeckRepository deckRepository;
@@ -47,8 +50,11 @@ class AiServiceTest {
     @BeforeEach
     void setUp() {
         AiProperties properties = new AiProperties(
-                "test-key", "claude-test", 10, 12000, Duration.ofSeconds(5));
-        service = new AiService(aiClient, properties, usageRepository, deckRepository,
+                "test-key", "claude-test", 10, 12000, Duration.ofSeconds(5),
+                null, null, false);
+        when(aiClients.stream().filter(c -> c instanceof AnthropicClient).findFirst())
+                .thenReturn(java.util.Optional.of(aiClient));
+        service = new AiService(aiClients, properties, usageRepository, deckRepository,
                 cardRepository, subjectRepository, JsonMapper.builder().build());
         when(usageRepository.findById(any())).thenReturn(Optional.empty());
         when(usageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));

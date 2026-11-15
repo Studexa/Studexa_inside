@@ -15,9 +15,11 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.studexa.common.CurrentUser;
+import com.studexa.game.dto.PetDto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 @RestController
@@ -73,10 +75,10 @@ public class PetController {
         petService.equipAccessory(CurrentUser.id(jwt), request.accessoryType());
     }
 
-    public record UpdateMoodRequest(@NotBlank Boolean studiedToday) {
+    public record UpdateMoodRequest(@NotNull Boolean studiedToday) {
     }
 
-    public record UpdateStageRequest(@NotBlank Integer level) {
+    public record UpdateStageRequest(@NotNull Integer level) {
     }
 
     public record RenamePetRequest(

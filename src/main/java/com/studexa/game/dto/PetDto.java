@@ -1,4 +1,4 @@
-package com.studexa.game;
+package com.studexa.game.dto;
 
 import java.time.Instant;
 import java.util.List;

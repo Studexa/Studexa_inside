@@ -2,7 +2,6 @@ package com.studexa.deck;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -76,55 +75,6 @@ public class CardService {
             }
         }
         return result;
-    }
-
-    @Transactional
-    public CardResponse review(UUID userId, UUID cardId, ReviewRating rating) {
-        Card card = requireOwned(userId, cardId);
-        CardProgress progress = progressRepository.findByCardIdAndUserId(cardId, userId)
-                .orElseGet(() -> CardProgress.newFor(cardId, userId, clock.instant()));
-
-        Instant now = clock.instant();
-        int interval = progress.getIntervalDays();
-        int reps = progress.getReps() + 1;
-        double ease = progress.getEase();
-        Instant dueAt;
-
-        switch (rating) {
-            case AGAIN -> {
-                ease = Math.max(1.3, ease - 0.2);
-                interval = 0;
-                if (progress.getReps() > 0) {
-                    progress.setLapses(progress.getLapses() + 1);
-                }
-                dueAt = now.plus(10, ChronoUnit.MINUTES);
-            }
-            case HARD -> {
-                ease = Math.max(1.3, ease - 0.15);
-                interval = interval == 0 ? 1 : Math.max(1, (int) Math.ceil(interval * 1.2));
-                dueAt = now.plus(interval, ChronoUnit.DAYS);
-            }
-            case GOOD -> {
-                interval = interval == 0 ? 1 : Math.max(1, (int) Math.round(interval * ease));
-                dueAt = now.plus(interval, ChronoUnit.DAYS);
-            }
-            case EASY -> {
-                ease = Math.min(3.2, ease + 0.15);
-                interval = interval == 0 ? 4 : Math.max(2, (int) Math.round(interval * ease * 1.3));
-                dueAt = now.plus(interval, ChronoUnit.DAYS);
-            }
-            default -> throw ApiException.badRequest("INVALID_RATING", "Choose a valid review rating.");
-        }
-
-        progress.setEase(ease);
-        progress.setIntervalDays(interval);
-        progress.setReps(reps);
-        progress.setDueAt(dueAt);
-        progress.setState(interval == 0 ? "LEARNING" : "REVIEW");
-        progress.setLastReviewedAt(now);
-        progressRepository.save(progress);
-
-        return CardResponse.from(card, false);
     }
 
     @Transactional(readOnly = true)

@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: optional:file:.env[.properties]
   application:
     name: studexa
   threads:
@@ -64,7 +66,15 @@ app:
     level-up-coins: ${GAME_LEVEL_UP_COINS:20}
     streak-freeze-cost: ${GAME_STREAK_FREEZE_COST:50}
     max-freezes-held: ${GAME_MAX_FREEZES_HELD:2}
+
+    # --- Coins (Section 7.4) ---
     coins-per-ten-xp: ${GAME_COINS_PER_TEN_XP:1}
+    coins-per-level-up: ${GAME_COINS_PER_LEVEL_UP:10}
+
+    # --- Badges (Section 7.5) ---
+    badge-seed: []
+
+    # --- Anti-cheat (Section 7.11) ---
     too-fast-threshold-ms: ${GAME_TOO_FAST_THRESHOLD_MS:800}
     too-fast-consecutive-count: ${GAME_TOO_FAST_CONSECUTIVE_COUNT:10}
     offline-max-days-ago: ${GAME_OFFLINE_MAX_DAYS_AGO:7}
@@ -90,6 +100,9 @@ app:
     daily-limit: ${AI_DAILY_LIMIT:10}
     max-source-chars: ${AI_MAX_SOURCE_CHARS:12000}
     timeout: ${AI_TIMEOUT:45s}
+    gemini-api-key: ${GEMINI_API_KEY:}
+    gemini-model: ${GEMINI_MODEL:gemini-2.0-flash-exp}
+    gemini-enabled: ${GEMINI_ENABLED:true}
   security:
     auth-rate-limit:
       enabled: ${AUTH_RATE_LIMIT_ENABLED:true}

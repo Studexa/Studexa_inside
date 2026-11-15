@@ -1,4 +1,4 @@
-package com.studexa.game;
+package com.studexa.game.dto;
 
 public record ShopItemDto(
         String id,

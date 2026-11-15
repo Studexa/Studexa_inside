@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.studexa.game.dto.AwardResult;
 import com.studexa.game.dto.BadgeDto;
@@ -28,15 +29,13 @@ import com.studexa.game.dto.XpEventDto;
 import com.studexa.user.User;
 import com.studexa.user.UserRepository;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-
 /**
  * Tests for the secure game engine. Runs against {@code studexa_test} only,
  * guarded by {@code TestDatabaseGuard}.
  */
 @SpringBootTest
 @ActiveProfiles("test")
+@Transactional
 class GameServiceTest {
 
     @Autowired
@@ -48,17 +47,12 @@ class GameServiceTest {
     @Autowired
     private GameStateRepository gameStateRepository;
 
-    @PersistenceContext
-    private EntityManager entityManager;
-
     private UUID userId;
 
     @BeforeEach
     void setUp() {
-        User user = userRepository.save(new User());
+        User user = userRepository.save(User.withPassword("test-" + UUID.randomUUID() + "@example.com", "hash"));
         userId = user.getId();
-        entityManager.flush();
-        entityManager.clear();
     }
 
     @Test

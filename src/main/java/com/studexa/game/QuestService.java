@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.studexa.common.ApiException;
+import com.studexa.game.dto.QuestDto;
+import com.studexa.user.ProfileRepository;
 
 /**
  * Quest service. Creates daily and weekly quests lazily on the first request
@@ -30,15 +32,18 @@ public class QuestService {
 
     private final QuestRepository questRepository;
     private final GameService gameService;
+    private final ProfileRepository profileRepository;
     private final Clock clock;
 
     // In-flight quest creation locks per user, to avoid duplicate DB writes
     // under concurrent first-request-of-the-day load.
     private static final Map<UUID, Object> creationLocks = new ConcurrentHashMap<>();
 
-    public QuestService(QuestRepository questRepository, GameService gameService, Clock clock) {
+    public QuestService(QuestRepository questRepository, GameService gameService,
+            ProfileRepository profileRepository, Clock clock) {
         this.questRepository = questRepository;
         this.gameService = gameService;
+        this.profileRepository = profileRepository;
         this.clock = clock;
     }
 
@@ -50,7 +55,7 @@ public class QuestService {
     @Transactional
     public List<QuestDto> getToday(UUID userId) {
         ZoneId zoneId = zoneIdFor(userId);
-        LocalDate today = LocalDate.now(zoneId);
+        LocalDate today = clock.instant().atZone(zoneId).toLocalDate();
         LocalDate weekStart = today.with(DayOfWeek.MONDAY);
 
         List<Quest> existing = questRepository.findByUserIdAndQuestDateOrderByCode(userId, today);
@@ -90,7 +95,7 @@ public class QuestService {
         }
 
         ZoneId zoneId = zoneIdFor(userId);
-        LocalDate today = LocalDate.now(zoneId);
+        LocalDate today = clock.instant().atZone(zoneId).toLocalDate();
 
         Quest quest = questRepository.findByUserIdAndQuestDateOrderByCode(userId, today).stream()
                 .filter(q -> q.getCode().equals(code) && !q.isCompleted())
@@ -175,9 +180,15 @@ public class QuestService {
     }
 
     private ZoneId zoneIdFor(UUID userId) {
-        // Fast path: default to Asia/Phnom_Penh (the app's default timezone).
-        // In a full implementation this would be read from the profile.
-        return ZoneId.of("Asia/Phnom_Penh");
+        return profileRepository.findById(userId)
+                .map(p -> {
+                    try {
+                        return ZoneId.of(p.getTimezone());
+                    } catch (Exception e) {
+                        return ZoneId.of("Asia/Phnom_Penh");
+                    }
+                })
+                .orElse(ZoneId.of("Asia/Phnom_Penh"));
     }
 
     private boolean alreadyApplied(UUID userId, UUID questId, String source, UUID referenceId) {

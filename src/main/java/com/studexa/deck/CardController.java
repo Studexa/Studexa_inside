@@ -22,7 +22,6 @@ import com.studexa.deck.dto.BulkCreateCardsRequest;
 import com.studexa.deck.dto.CardResponse;
 import com.studexa.deck.dto.CreateCardRequest;
 import com.studexa.deck.dto.DueCardResponse;
-import com.studexa.deck.dto.ReviewCardRequest;
 import com.studexa.deck.dto.UpdateCardRequest;
 
 import jakarta.validation.Valid;
@@ -46,12 +45,6 @@ public class CardController {
     public List<DueCardResponse> due(@AuthenticationPrincipal Jwt jwt,
             @RequestParam(defaultValue = "50") int limit) {
         return cardService.due(CurrentUser.id(jwt), limit);
-    }
-
-    @PostMapping("/cards/{id}/review")
-    public CardResponse review(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
-            @Valid @RequestBody ReviewCardRequest request) {
-        return cardService.review(CurrentUser.id(jwt), id, request.rating());
     }
 
     @PostMapping("/decks/{deckId}/cards")

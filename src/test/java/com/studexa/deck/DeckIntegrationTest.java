@@ -76,12 +76,13 @@ class DeckIntegrationTest {
                 .andExpect(jsonPath("$[0].deckTitle").value("Algebra warm-ups"))
                 .andExpect(jsonPath("$[0].sourceTitle").value("Arithmetic notes"));
 
-        mvc.perform(post("/api/v1/cards/{id}/review", firstCardId)
+        mvc.perform(post("/api/v1/review/answer")
                 .header(HttpHeaders.AUTHORIZATION, bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"rating\":\"GOOD\"}"))
+                .content("{\"cardId\":\"" + firstCardId + "\",\"rating\":\"GOOD\",\"msTaken\":1000}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.due").value(false));
+                .andExpect(jsonPath("$.state").value("REVIEW"))
+                .andExpect(jsonPath("$.xpEarned").value(5));
 
         mvc.perform(get("/api/v1/cards/due").header(HttpHeaders.AUTHORIZATION, bearer(token)))
                 .andExpect(status().isOk())
@@ -106,10 +107,10 @@ class DeckIntegrationTest {
                 .andReturn();
         String cardId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
 
-        mvc.perform(post("/api/v1/cards/{id}/review", cardId)
+        mvc.perform(post("/api/v1/review/answer")
                 .header(HttpHeaders.AUTHORIZATION, bearer(bob))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"rating\":\"EASY\"}"))
+                .content("{\"cardId\":\"" + cardId + "\",\"rating\":\"EASY\",\"msTaken\":1000}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
@@ -126,10 +127,10 @@ class DeckIntegrationTest {
                 .andReturn();
         String cardId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
 
-        mvc.perform(post("/api/v1/cards/{id}/review", cardId)
+        mvc.perform(post("/api/v1/review/answer")
                 .header(HttpHeaders.AUTHORIZATION, bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"rating\":\"PERFECT\"}"))
+                .content("{\"cardId\":\"" + cardId + "\",\"rating\":\"PERFECT\",\"msTaken\":1000}"))
                 .andExpect(status().isBadRequest());
     }
 

@@ -13,6 +13,8 @@ import java.util.Random;
  */
 public final class Sm2Scheduler implements Scheduler {
 
+    public static final int MAX_INTERVAL_DAYS = 3650;
+
     private final SchedulerConfig config;
     private final Random random;
 
@@ -106,17 +108,19 @@ public final class Sm2Scheduler implements Scheduler {
     }
 
     private CardState reviewState(CardState current, Instant now, double ease, int interval) {
+        int clampedInterval = Math.min(MAX_INTERVAL_DAYS, Math.max(0, interval));
+        double clampedEase = Math.min(config.maximumEase(), Math.max(config.minimumEase(), ease));
         return new CardState(
-                ease,
-                interval,
+                roundEase(clampedEase),
+                clampedInterval,
                 current.reps() + 1,
                 current.lapses(),
-                now.plus(interval, ChronoUnit.DAYS),
+                now.plus(clampedInterval, ChronoUnit.DAYS),
                 CardStateType.REVIEW);
     }
 
     private int previewInterval(CardState current, Rating rating) {
-        return switch (rating) {
+        int calculated = switch (rating) {
             case AGAIN -> 0;
             case HARD -> isNew(current)
                     ? config.firstIntervalDays()
@@ -133,6 +137,7 @@ public final class Sm2Scheduler implements Scheduler {
                                     * Math.min(config.maximumEase(), current.ease() + config.easyEaseBonus())
                                     * config.easyIntervalMultiplier()));
         };
+        return Math.min(MAX_INTERVAL_DAYS, calculated);
     }
 
     private int applyJitter(int interval) {
