@@ -2,13 +2,12 @@ package com.studexa.ai;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -33,9 +32,7 @@ import tools.jackson.databind.json.JsonMapper;
 class AiServiceTest {
 
     @Mock
-    private AiClient aiClient;
-    @Mock
-    private List<AiClient> aiClients;
+    private AnthropicClient anthropicClient;
     @Mock
     private AiUsageRepository usageRepository;
     @Mock
@@ -52,17 +49,19 @@ class AiServiceTest {
         AiProperties properties = new AiProperties(
                 "test-key", "claude-test", 10, 12000, Duration.ofSeconds(5),
                 null, null, false);
-        when(aiClients.stream().filter(c -> c instanceof AnthropicClient).findFirst())
-                .thenReturn(java.util.Optional.of(aiClient));
-        service = new AiService(aiClients, properties, usageRepository, deckRepository,
-                cardRepository, subjectRepository, JsonMapper.builder().build());
-        when(usageRepository.findById(any())).thenReturn(Optional.empty());
-        when(usageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        // AiService.client() picks the AnthropicClient from a real list; a
+        // mocked List cannot have its stream() default method stubbed.
+        service = new AiService(List.of(anthropicClient), properties, usageRepository,
+                deckRepository, cardRepository, subjectRepository,
+                JsonMapper.builder().build());
+        // The service claims a daily quota slot via tryIncrementUsage; a
+        // return of 1 means the slot was claimed successfully.
+        when(usageRepository.tryIncrementUsage(any(), any(), anyInt())).thenReturn(1);
     }
 
     @Test
     void generateKeepsOnlyExactSourceExcerpts() {
-        when(aiClient.complete(anyString(), anyString())).thenReturn("""
+        when(anthropicClient.complete(anyString(), anyString())).thenReturn("""
                 {"items":[
                   {"type":"BASIC","front":"What do plants use?","back":"Sunlight",
                    "choices":[],"explanation":"Plants need light.","sourceTitle":"Notes",
@@ -82,12 +81,11 @@ class AiServiceTest {
         assertThat(response.items().getFirst().sourceExcerpt())
                 .isEqualTo("Plants use sunlight to make food.");
         assertThat(response.items().get(1).sourceExcerpt()).isNull();
-        verify(usageRepository).save(any());
     }
 
     @Test
     void quizDropsQuestionsWhoseAnswerIsNotAChoice() {
-        when(aiClient.complete(anyString(), anyString())).thenReturn("""
+        when(anthropicClient.complete(anyString(), anyString())).thenReturn("""
                 {"items":[
                   {"type":"MULTIPLE_CHOICE","front":"What is 2 + 2?","back":"4",
                    "choices":["3","4","5"],"explanation":"Two plus two is four.",
@@ -110,7 +108,7 @@ class AiServiceTest {
 
     @Test
     void tutorDropsReferencesThatAreNotInTheSource() {
-        when(aiClient.complete(anyString(), anyString())).thenReturn("""
+        when(anthropicClient.complete(anyString(), anyString())).thenReturn("""
                 {"answer":"Plants use sunlight to make food.",
                  "references":[
                    {"title":"Notes","sourceExcerpt":"Plants use sunlight to make food."},
