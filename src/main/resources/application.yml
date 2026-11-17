@@ -102,7 +102,7 @@ app:
     timeout: ${AI_TIMEOUT:45s}
     gemini-api-key: ${GEMINI_API_KEY:}
     gemini-model: ${GEMINI_MODEL:gemini-2.0-flash-exp}
-    gemini-enabled: ${GEMINI_ENABLED:true}
+    gemini-enabled: ${GEMINI_ENABLED:false}
   security:
     auth-rate-limit:
       enabled: ${AUTH_RATE_LIMIT_ENABLED:true}

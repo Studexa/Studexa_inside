@@ -1,6 +1,7 @@
 package com.studexa.ai;
 
 import java.time.LocalDate;
+import java.time.Clock;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -65,11 +66,12 @@ public class AiService {
     private final CardRepository cardRepository;
     private final SubjectRepository subjectRepository;
     private final ObjectMapper objectMapper;
+    private final Clock clock;
 
     public AiService(List<AiClient> aiClients, AiProperties properties,
             AiUsageRepository usageRepository, DeckRepository deckRepository,
             CardRepository cardRepository, SubjectRepository subjectRepository,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper, Clock clock) {
         this.aiClients = aiClients;
         this.properties = properties;
         this.usageRepository = usageRepository;
@@ -77,6 +79,7 @@ public class AiService {
         this.cardRepository = cardRepository;
         this.subjectRepository = subjectRepository;
         this.objectMapper = objectMapper;
+        this.clock = clock;
     }
 
     private AiClient client() {
@@ -102,7 +105,7 @@ public class AiService {
         int count = Math.min(MAX_ITEMS, Math.max(1, request.count() == null ? 8 : request.count()));
         String language = "km".equals(request.language()) ? "Khmer" : "English";
 
-        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
         claimUsageSlot(userId, today);
         try {
             String prompt = generationPrompt(request.task(), context, count, language);
@@ -128,14 +131,14 @@ public class AiService {
         String source = limit(trimToNull(request.sourceText()), properties.maxSourceChars());
         String title = defaultTitle(trimToNull(request.sourceTitle()));
 
-        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
         claimUsageSlot(userId, today);
         try {
             String prompt = tutorPrompt(question, source, title);
             String raw = client().complete(TUTOR_SYSTEM, prompt);
             JsonNode root = parseJson(raw);
             String answer = root.path("answer").asString("").trim();
-            if (answer.isEmpty()) {
+            if (!root.path("answer").isString() || answer.isEmpty() || answer.length() > 6000) {
                 throw ApiException.badGateway(
                         "AI_INVALID_RESPONSE", "The AI did not return an answer. Please try again.");
             }
@@ -145,8 +148,9 @@ public class AiService {
                 for (JsonNode node : root.path("references")) {
                     String excerpt = excerptFrom(node.path("sourceExcerpt").asString(node.path("excerpt").asString("")), source);
                     if (excerpt != null) {
-                        references.add(new AiTutorReference(
-                                textOr(node.path("title").asString(""), title), excerpt));
+                        var reference = new AiTutorReference(title, excerpt);
+                        if (!references.contains(reference)) references.add(reference);
+                        if (references.size() >= 5) break;
                     }
                 }
             }
@@ -252,6 +256,9 @@ public class AiService {
 
                 RULES:
                 - Be correct, kind, and easy to understand. Keep the answer under 180 words.
+                - Reply in the language of the student's question; preserve Khmer script.
+                - For hints, guide the student without revealing the answer. For practice, ask one question at a time.
+                - If the attached material cannot answer the question, say what is missing instead of inventing facts.
                 - When source material is present, use only that material.
                 - references are required only when source material is present. Each sourceExcerpt must be an exact quote from the source.
                 - If no source is present, return an empty references array.
@@ -288,7 +295,8 @@ public class AiService {
     private AiCardItem toItem(JsonNode node, AiTask task, SourceContext context) {
         String front = limit(textOr(node.path("front").asString(""), ""), MAX_CARD_CHARS);
         String back = limit(textOr(node.path("back").asString(""), ""), MAX_CARD_CHARS);
-        if (front == null || back == null) {
+        if (!node.path("front").isString() || !node.path("back").isString()
+                || front == null || back == null || front.isBlank() || back.isBlank()) {
             return null;
         }
 
@@ -296,11 +304,11 @@ public class AiService {
         List<String> choices = choices(node.path("choices"));
         if (task == AiTask.QUIZ) {
             type = CardType.MULTIPLE_CHOICE;
-            if (choices.size() < 2 || !choices.contains(back)) {
+            if (choices.size() < 3 || choices.size() > 4 || !choices.contains(back)) {
                 return null;
             }
         } else if (type == CardType.MULTIPLE_CHOICE) {
-            if (choices.size() < 2 || !choices.contains(back)) {
+            if (choices.size() < 3 || choices.size() > 4 || !choices.contains(back)) {
                 type = CardType.BASIC;
                 choices = List.of();
             }
@@ -311,7 +319,7 @@ public class AiService {
         }
 
         String explanation = limit(textOr(node.path("explanation").asString(""), ""), 500);
-        String sourceTitle = defaultTitle(textOr(node.path("sourceTitle").asString(""), context.title()));
+        String sourceTitle = context.title();
         String sourceExcerpt = excerptFrom(node.path("sourceExcerpt").asString(""), context.text());
 
         return new AiCardItem(type, front, back, choices, explanation,
@@ -323,7 +331,8 @@ public class AiService {
             return CardType.MULTIPLE_CHOICE;
         }
         try {
-            return CardType.valueOf(raw.toUpperCase(Locale.ROOT));
+            CardType type = CardType.valueOf(raw.toUpperCase(Locale.ROOT));
+            return type == CardType.REVERSED ? CardType.BASIC : type;
         } catch (IllegalArgumentException ex) {
             return CardType.BASIC;
         }
@@ -347,7 +356,7 @@ public class AiService {
     }
 
     private JsonNode parseJson(String raw) {
-        if (raw == null) {
+        if (raw == null || raw.length() > 100000) {
             throw ApiException.badGateway("AI_INVALID_RESPONSE", "The AI returned an empty response.");
         }
         int start = raw.indexOf('{');
@@ -370,16 +379,10 @@ public class AiService {
             return null;
         }
         String limited = limit(trimmed, MAX_EXCERPT_CHARS);
-        String normalizedSource = normalize(source);
-        String normalizedExcerpt = normalize(limited);
-        if (normalizedExcerpt.isEmpty() || !normalizedSource.contains(normalizedExcerpt)) {
+        if (!source.contains(limited)) {
             return null;
         }
         return limited;
-    }
-
-    private static String normalize(String text) {
-        return text == null ? "" : text.replaceAll("\\s+", " ").trim().toLowerCase(Locale.ROOT);
     }
 
     private void requireConfigured() {
@@ -415,10 +418,6 @@ public class AiService {
         } catch (Exception e) {
             // Ignore rollback errors so the original exception is preserved
         }
-    }
-
-    private static AiUsageId usageId(UUID userId) {
-        return new AiUsageId(userId, LocalDate.now(ZoneOffset.UTC));
     }
 
     private String defaultTitle(String title) {

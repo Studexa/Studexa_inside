@@ -16,8 +16,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.studexa.common.ApiException;
 import com.studexa.common.CurrentUser;
 import com.studexa.quiz.dto.QuizDto;
@@ -225,7 +225,7 @@ public class SessionController {
         settings.put("difficulty", request.difficulty() != null ? request.difficulty() : "medium");
         try {
             return objectMapper.writeValueAsString(settings);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw ApiException.badRequest("INVALID_SETTINGS", "Could not read the room settings.");
         }
     }

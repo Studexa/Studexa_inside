@@ -43,7 +43,7 @@ public class Session {
     @Column(nullable = false, length = 20)
     private Status status = Status.WAITING;
 
-    @Column(columnDefinition = "JSONB NOT NULL DEFAULT '{}'")
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String settings = "{}"; // numQuestions, timePerQuestion, difficulty, etc.
 
     @Column(name = "started_at")
