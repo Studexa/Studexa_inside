@@ -126,9 +126,11 @@ public class QuestService {
             quest.setCompleted(true);
             questRepository.save(quest);
 
-            // Award reward through the secure game engine.
+            // Award reward through the secure game engine. XP goes through
+            // awardXp (daily cap applies); coins are credited separately so a
+            // coin reward is never mistaken for XP.
             gameService.awardXp(userId, "quest_" + code, quest.getRewardXp(), referenceId, Map.of("goalMet", true));
-            gameService.awardXp(userId, "quest_coins_" + code, quest.getRewardCoins(), referenceId, Map.of("goalMet", true));
+            gameService.awardCoins(userId, quest.getRewardCoins());
         }
 
         recordQuestEvent(userId, quest.getId(), source, referenceId);

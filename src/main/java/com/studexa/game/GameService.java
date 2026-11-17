@@ -187,6 +187,23 @@ public class GameService {
     }
 
     /**
+     * Awards coins without touching XP. Coins earned this way do not count
+     * toward the daily XP cap. Idempotency is the caller's responsibility
+     * (quest completion is already guarded by {@code quest_events}).
+     */
+    @Transactional
+    public void awardCoins(UUID userId, int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        GameState state = lockState(userId);
+        state.setCoins(state.getCoins() + amount);
+        state.setUpdatedAt(clock.instant());
+        gameStateRepository.save(state);
+        entityManager.flush();
+    }
+
+    /**
      * Consumes a streak freeze (costs coins, server-validated).
      */
     @Transactional

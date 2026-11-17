@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.studexa.common.ApiException;
 import com.studexa.common.CurrentUser;
 import com.studexa.quiz.dto.QuizDto;
 import com.studexa.quiz.dto.QuizDto.QuestionRequest;
@@ -41,12 +42,15 @@ public class QuizController {
     public QuizDto.QuizResponse createQuiz(@AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody QuizRequest request) {
         UUID ownerId = CurrentUser.id(jwt);
+        if (request.title() == null || request.title().isBlank()) {
+            throw ApiException.badRequest("INVALID_TITLE", "Quiz title is required.");
+        }
         Quiz quiz = new Quiz(
                 ownerId,
-                request.title(),
+                request.title().trim(),
                 request.description(),
                 request.subject(),
-                Quiz.Visibility.valueOf(request.visibility()));
+                visibility(request.visibility()));
         quiz = quizRepository.save(quiz);
         return toResponse(quiz);
     }
@@ -71,7 +75,7 @@ public class QuizController {
             @AuthenticationPrincipal Jwt jwt) {
         UUID ownerId = CurrentUser.id(jwt);
         Quiz quiz = quizRepository.findByIdAndOwnerId(id, ownerId)
-                .orElseThrow(() -> new RuntimeException("Quiz not found"));
+                .orElseThrow(() -> ApiException.notFound("Quiz not found."));
         List<QuizDto.QuestionResponse> questions = questionRepository.findByQuizIdOrderByCreatedAtAsc(id).stream()
                 .map(this::toResponse)
                 .toList();
@@ -85,18 +89,24 @@ public class QuizController {
             @Valid @RequestBody QuestionRequest request) {
         UUID ownerId = CurrentUser.id(jwt);
         Quiz quiz = quizRepository.findByIdAndOwnerId(id, ownerId)
-                .orElseThrow(() -> new RuntimeException("Quiz not found"));
+                .orElseThrow(() -> ApiException.notFound("Quiz not found."));
+        if (request.text() == null || request.text().isBlank()) {
+            throw ApiException.badRequest("INVALID_QUESTION", "Question text is required.");
+        }
+        if (request.correctAnswer() == null || request.correctAnswer().isBlank()) {
+            throw ApiException.badRequest("INVALID_QUESTION", "A correct answer is required.");
+        }
         Question question = new Question(
                 quiz.getId(),
-                request.text(),
-                Question.Type.valueOf(request.type()),
+                request.text().trim(),
+                type(request.type()),
                 request.options(),
-                request.correctAnswer(),
+                request.correctAnswer().trim(),
                 request.explanation(),
                 request.subject(),
                 request.topic(),
                 request.subtopic(),
-                Question.Difficulty.valueOf(request.difficulty()),
+                difficulty(request.difficulty()),
                 request.timeLimitSeconds());
         question = questionRepository.save(question);
         return toResponse(question);
@@ -114,6 +124,39 @@ public class QuizController {
                 q.getOptions(), q.getCorrectAnswer(), q.getExplanation(),
                 q.getSubject(), q.getTopic(), q.getSubtopic(),
                 q.getDifficulty().name(), q.getTimeLimitSeconds(), q.getCreatedAt());
+    }
+
+    private static Quiz.Visibility visibility(String value) {
+        if (value == null || value.isBlank()) {
+            return Quiz.Visibility.PRIVATE;
+        }
+        try {
+            return Quiz.Visibility.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw ApiException.badRequest("INVALID_VISIBILITY", "Visibility must be PRIVATE or PUBLIC.");
+        }
+    }
+
+    private static Question.Type type(String value) {
+        if (value == null || value.isBlank()) {
+            return Question.Type.MULTIPLE_CHOICE;
+        }
+        try {
+            return Question.Type.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw ApiException.badRequest("INVALID_QUESTION_TYPE", "Unknown question type.");
+        }
+    }
+
+    private static Question.Difficulty difficulty(String value) {
+        if (value == null || value.isBlank()) {
+            return Question.Difficulty.MEDIUM;
+        }
+        try {
+            return Question.Difficulty.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw ApiException.badRequest("INVALID_DIFFICULTY", "Unknown difficulty.");
+        }
     }
 
     public record QuizWithQuestions(QuizDto.QuizResponse quiz, List<QuizDto.QuestionResponse> questions) {}

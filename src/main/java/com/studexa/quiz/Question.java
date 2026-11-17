@@ -3,6 +3,9 @@ package com.studexa.quiz;
 import java.time.Instant;
 import java.util.UUID;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -36,6 +39,7 @@ public class Question {
     @Column(nullable = false, length = 20)
     private Type type = Type.MULTIPLE_CHOICE;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "JSONB")
     private String options; // JSON array of {id, text}
 

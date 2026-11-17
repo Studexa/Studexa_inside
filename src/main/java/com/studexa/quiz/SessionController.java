@@ -1,6 +1,8 @@
 package com.studexa.quiz;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -14,6 +16,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.studexa.common.ApiException;
 import com.studexa.common.CurrentUser;
 import com.studexa.quiz.dto.QuizDto;
 import com.studexa.quiz.dto.QuizDto.CreateSessionRequest;
@@ -28,15 +33,23 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1/sessions")
 public class SessionController {
 
+    /** Room-code alphabet without look-alike characters (no 0/O, 1/I/L). */
+    private static final String ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final int ROOM_CODE_LENGTH = 6;
+
     private final SessionRepository sessionRepository;
     private final SessionPlayerRepository playerRepository;
     private final QuizRepository quizRepository;
+    private final ObjectMapper objectMapper;
 
     public SessionController(SessionRepository sessionRepository,
-            SessionPlayerRepository playerRepository, QuizRepository quizRepository) {
+            SessionPlayerRepository playerRepository,
+            QuizRepository quizRepository,
+            ObjectMapper objectMapper) {
         this.sessionRepository = sessionRepository;
         this.playerRepository = playerRepository;
         this.quizRepository = quizRepository;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping
@@ -44,18 +57,19 @@ public class SessionController {
     public QuizDto.SessionResponse createSession(@AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody CreateSessionRequest request) {
         UUID hostId = CurrentUser.id(jwt);
-        Quiz quiz = quizRepository.findById(request.quizId())
-                .orElseThrow(() -> new RuntimeException("Quiz not found"));
-        String roomCode = generateRoomCode();
+        if (request.quizId() == null) {
+            throw ApiException.badRequest("QUIZ_REQUIRED", "Create a quiz before opening a room.");
+        }
+        Quiz quiz = quizRepository.findByIdAndOwnerId(request.quizId(), hostId)
+                .orElseThrow(() -> ApiException.notFound("Quiz not found."));
+
         Session session = new Session(
-                quiz.getId(), hostId, roomCode,
-                Session.Mode.valueOf(request.mode()),
-                "{\"numQuestions\":" + (request.numQuestions() != null ? request.numQuestions() : 10)
-                        + ",\"timePerQuestion\":" + (request.timePerQuestion() != null ? request.timePerQuestion() : 30)
-                        + ",\"difficulty\":\"" + (request.difficulty() != null ? request.difficulty() : "medium") + "\"}");
+                quiz.getId(), hostId, nextRoomCode(),
+                mode(request.mode()),
+                settingsJson(request));
         session = sessionRepository.save(session);
 
-        // Host auto-joins as a player
+        // Host auto-joins as a player so the lobby always has at least one member.
         SessionPlayer hostPlayer = new SessionPlayer(
                 session.getId(), hostId, "Host", null, null, true);
         hostPlayer.setIsReady(true);
@@ -66,8 +80,8 @@ public class SessionController {
 
     @GetMapping("/room/{code}")
     public QuizDto.RoomInfoResponse getRoom(@PathVariable String code) {
-        Session session = sessionRepository.findByRoomCode(code)
-                .orElseThrow(() -> new RuntimeException("Room not found"));
+        Session session = sessionRepository.findByRoomCode(code.trim().toUpperCase())
+                .orElseThrow(() -> ApiException.notFound("Room not found."));
         List<QuizDto.SessionPlayerResponse> players = playerRepository.findBySessionId(session.getId()).stream()
                 .map(this::toResponse)
                 .toList();
@@ -78,10 +92,9 @@ public class SessionController {
     public QuizDto.SessionResponse startSession(@PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = CurrentUser.id(jwt);
-        Session session = sessionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Session not found"));
-        if (!session.getHostId().equals(userId)) {
-            throw new RuntimeException("Only the host can start the session");
+        Session session = requireHost(id, userId);
+        if (session.getStatus() == Session.Status.ENDED) {
+            throw ApiException.conflict("SESSION_ENDED", "This room has already finished.");
         }
         session.setStatus(Session.Status.ACTIVE);
         session.setStartedAt(java.time.Instant.now());
@@ -91,32 +104,114 @@ public class SessionController {
 
     @GetMapping("/{id}/players")
     public List<QuizDto.SessionPlayerResponse> getPlayers(@PathVariable UUID id) {
+        sessionRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Session not found."));
         return playerRepository.findBySessionIdOrderByTotalScoreDesc(id).stream()
                 .map(this::toResponse)
                 .toList();
     }
 
+    /**
+     * Join by session id (the lobby resolves the 6-character code first).
+     * Re-joining with the same account returns the existing player, which is
+     * what a reconnect needs, instead of failing with a duplicate nickname.
+     */
     @PostMapping("/{id}/players")
     @ResponseStatus(HttpStatus.CREATED)
     public QuizDto.SessionPlayerResponse joinSession(@PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody JoinRoomRequest request) {
+        UUID userId = CurrentUser.id(jwt);
         Session session = sessionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Session not found"));
-        if (playerRepository.existsBySessionIdAndNickname(id, request.nickname())) {
-            throw new RuntimeException("Nickname already taken in this room");
+                .orElseThrow(() -> ApiException.notFound("Room not found."));
+
+        SessionPlayer existing = playerRepository.findBySessionIdAndUserId(id, userId).orElse(null);
+        if (existing != null) {
+            return toResponse(existing);
         }
+
+        if (session.getStatus() != Session.Status.WAITING) {
+            throw ApiException.conflict("ROOM_CLOSED", "This room is no longer accepting players.");
+        }
+
+        String nickname = request.nickname() == null ? "" : request.nickname().trim();
+        if (nickname.isEmpty()) {
+            throw ApiException.badRequest("NICKNAME_REQUIRED", "Enter a nickname to join.");
+        }
+        if (nickname.length() > 50) {
+            throw ApiException.badRequest("INVALID_NICKNAME", "Nickname must be 50 characters or fewer.");
+        }
+        if (playerRepository.existsBySessionIdAndNickname(id, nickname)) {
+            throw ApiException.conflict("NICKNAME_TAKEN", "That nickname is already taken in this room.");
+        }
+
         SessionPlayer player = new SessionPlayer(
-                id, null, request.nickname(), null, null, false);
+                id, userId, nickname, null, null, false);
         player = playerRepository.save(player);
         return toResponse(player);
     }
 
     @GetMapping("/{id}/leaderboard")
     public List<QuizDto.LeaderboardEntry> getLeaderboard(@PathVariable UUID id) {
+        sessionRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Session not found."));
         return playerRepository.findBySessionIdOrderByTotalScoreDesc(id).stream()
                 .map(p -> new QuizDto.LeaderboardEntry(
                         p.getNickname(), p.getTotalScore(), p.getFinalRank(), p.getIsHost()))
                 .toList();
+    }
+
+    private Session requireHost(UUID sessionId, UUID userId) {
+        Session session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> ApiException.notFound("Session not found."));
+        if (!session.getHostId().equals(userId)) {
+            // 404 so room ids cannot be probed by non-hosts.
+            throw ApiException.notFound("Session not found.");
+        }
+        return session;
+    }
+
+    private String nextRoomCode() {
+        for (int attempt = 0; attempt < 10; attempt++) {
+            String code = randomRoomCode();
+            if (sessionRepository.findByRoomCode(code).isEmpty()) {
+                return code;
+            }
+        }
+        throw ApiException.serviceUnavailable("ROOM_CODE_UNAVAILABLE",
+                "Could not allocate a room code. Please try again.");
+    }
+
+    private static String randomRoomCode() {
+        java.security.SecureRandom random = new java.security.SecureRandom();
+        StringBuilder sb = new StringBuilder(ROOM_CODE_LENGTH);
+        for (int i = 0; i < ROOM_CODE_LENGTH; i++) {
+            sb.append(ROOM_CODE_ALPHABET.charAt(random.nextInt(ROOM_CODE_ALPHABET.length())));
+        }
+        return sb.toString();
+    }
+
+    private static Session.Mode mode(String value) {
+        if (value == null || value.isBlank()) {
+            return Session.Mode.LIVE_RACE;
+        }
+        try {
+            return Session.Mode.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw ApiException.badRequest("INVALID_MODE", "Unknown quiz mode.");
+        }
+    }
+
+    private String settingsJson(CreateSessionRequest request) {
+        Map<String, Object> settings = new LinkedHashMap<>();
+        settings.put("numQuestions", request.numQuestions() != null ? request.numQuestions() : 10);
+        settings.put("timePerQuestion", request.timePerQuestion() != null ? request.timePerQuestion() : 30);
+        settings.put("difficulty", request.difficulty() != null ? request.difficulty() : "medium");
+        try {
+            return objectMapper.writeValueAsString(settings);
+        } catch (JsonProcessingException ex) {
+            throw ApiException.badRequest("INVALID_SETTINGS", "Could not read the room settings.");
+        }
     }
 
     private QuizDto.SessionResponse toResponse(Session s) {
@@ -131,15 +226,5 @@ public class SessionController {
                 p.getId(), p.getSessionId(), p.getUserId(), p.getNickname(),
                 p.getAvatarUrl(), p.getTeamId(), p.getTotalScore(),
                 p.getFinalRank(), p.getIsReady(), p.getIsHost());
-    }
-
-    private String generateRoomCode() {
-        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        StringBuilder sb = new StringBuilder(6);
-        java.util.Random random = new java.util.Random();
-        for (int i = 0; i < 6; i++) {
-            sb.append(chars.charAt(random.nextInt(chars.length())));
-        }
-        return sb.toString();
     }
 }
