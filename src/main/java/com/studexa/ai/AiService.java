@@ -134,7 +134,7 @@ public class AiService {
             String prompt = tutorPrompt(question, source, title);
             String raw = client().complete(TUTOR_SYSTEM, prompt);
             JsonNode root = parseJson(raw);
-            String answer = root.path("answer").asText("").trim();
+            String answer = root.path("answer").asString("").trim();
             if (answer.isEmpty()) {
                 throw ApiException.badGateway(
                         "AI_INVALID_RESPONSE", "The AI did not return an answer. Please try again.");
@@ -143,10 +143,10 @@ public class AiService {
             List<AiTutorReference> references = new ArrayList<>();
             if (source != null) {
                 for (JsonNode node : root.path("references")) {
-                    String excerpt = excerptFrom(node.path("sourceExcerpt").asText(node.path("excerpt").asText("")), source);
+                    String excerpt = excerptFrom(node.path("sourceExcerpt").asString(node.path("excerpt").asString("")), source);
                     if (excerpt != null) {
                         references.add(new AiTutorReference(
-                                textOr(node.path("title").asText(""), title), excerpt));
+                                textOr(node.path("title").asString(""), title), excerpt));
                     }
                 }
             }
@@ -286,13 +286,13 @@ public class AiService {
     }
 
     private AiCardItem toItem(JsonNode node, AiTask task, SourceContext context) {
-        String front = limit(textOr(node.path("front").asText(""), ""), MAX_CARD_CHARS);
-        String back = limit(textOr(node.path("back").asText(""), ""), MAX_CARD_CHARS);
+        String front = limit(textOr(node.path("front").asString(""), ""), MAX_CARD_CHARS);
+        String back = limit(textOr(node.path("back").asString(""), ""), MAX_CARD_CHARS);
         if (front == null || back == null) {
             return null;
         }
 
-        CardType type = parseType(node.path("type").asText(""), task);
+        CardType type = parseType(node.path("type").asString(""), task);
         List<String> choices = choices(node.path("choices"));
         if (task == AiTask.QUIZ) {
             type = CardType.MULTIPLE_CHOICE;
@@ -310,9 +310,9 @@ public class AiService {
             choices = List.of();
         }
 
-        String explanation = limit(textOr(node.path("explanation").asText(""), ""), 500);
-        String sourceTitle = defaultTitle(textOr(node.path("sourceTitle").asText(""), context.title()));
-        String sourceExcerpt = excerptFrom(node.path("sourceExcerpt").asText(""), context.text());
+        String explanation = limit(textOr(node.path("explanation").asString(""), ""), 500);
+        String sourceTitle = defaultTitle(textOr(node.path("sourceTitle").asString(""), context.title()));
+        String sourceExcerpt = excerptFrom(node.path("sourceExcerpt").asString(""), context.text());
 
         return new AiCardItem(type, front, back, choices, explanation,
                 sourceTitle.isEmpty() ? null : sourceTitle, sourceExcerpt);
@@ -335,7 +335,7 @@ public class AiService {
         }
         Set<String> choices = new LinkedHashSet<>();
         for (JsonNode choice : node) {
-            String text = choice.asText("").trim();
+            String text = choice.asString("").trim();
             if (!text.isEmpty()) {
                 choices.add(limit(text, 500));
             }

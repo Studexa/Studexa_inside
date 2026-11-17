@@ -82,7 +82,7 @@ public class GeminiClient implements AiClient {
                 JsonNode content = candidates.path(0).path("content");
                 JsonNode parts = content.path("parts");
                 if (parts.isArray() && parts.size() > 0) {
-                    String text = parts.path(0).path("text").asText();
+                    String text = parts.path(0).path("text").asString();
                     if (text != null && !text.isBlank()) {
                         return text;
                     }
