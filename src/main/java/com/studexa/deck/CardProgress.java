@@ -8,20 +8,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
-/**
- * Scheduling state for a card. Step 5 only creates NEW rows; the SRS engine
- * will own updates from Step 6 onward.
- */
 @Entity
 @Table(name = "card_progress")
-@Getter
-@Setter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CardProgress {
 
     public static final String STATE_NEW = "NEW";
@@ -58,6 +47,9 @@ public class CardProgress {
     @Column(nullable = false)
     private long version;
 
+    public CardProgress() {
+    }
+
     public static CardProgress newFor(UUID cardId, UUID userId, Instant now) {
         CardProgress progress = new CardProgress();
         progress.cardId = cardId;
@@ -77,5 +69,85 @@ public class CardProgress {
 
     public boolean isDue(Instant now) {
         return !dueAt.isAfter(now);
+    }
+
+    public UUID getCardId() {
+        return cardId;
+    }
+
+    public void setCardId(UUID cardId) {
+        this.cardId = cardId;
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public void setUserId(UUID userId) {
+        this.userId = userId;
+    }
+
+    public double getEase() {
+        return ease;
+    }
+
+    public void setEase(double ease) {
+        this.ease = ease;
+    }
+
+    public int getIntervalDays() {
+        return intervalDays;
+    }
+
+    public void setIntervalDays(int intervalDays) {
+        this.intervalDays = intervalDays;
+    }
+
+    public int getReps() {
+        return reps;
+    }
+
+    public void setReps(int reps) {
+        this.reps = reps;
+    }
+
+    public int getLapses() {
+        return lapses;
+    }
+
+    public void setLapses(int lapses) {
+        this.lapses = lapses;
+    }
+
+    public Instant getDueAt() {
+        return dueAt;
+    }
+
+    public void setDueAt(Instant dueAt) {
+        this.dueAt = dueAt;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String state) {
+        this.state = state;
+    }
+
+    public Instant getLastReviewedAt() {
+        return lastReviewedAt;
+    }
+
+    public void setLastReviewedAt(Instant lastReviewedAt) {
+        this.lastReviewedAt = lastReviewedAt;
+    }
+
+    public long getVersion() {
+        return version;
+    }
+
+    public void setVersion(long version) {
+        this.version = version;
     }
 }

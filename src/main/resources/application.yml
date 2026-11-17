@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: optional:file:.env[.properties]
   application:
     name: studexa
   threads:
@@ -39,6 +41,45 @@ management:
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  game:
+    xp-per-review: ${GAME_XP_PER_REVIEW:3}
+    xp-bonus-good-easy: ${GAME_XP_BONUS_GOOD_EASY:2}
+    xp-finish-session: ${GAME_XP_FINISH_SESSION:20}
+    xp-finish-session-min-cards: ${GAME_XP_FINISH_SESSION_MIN_CARDS:5}
+    max-sessions-per-day: ${GAME_MAX_SESSIONS_PER_DAY:5}
+    xp-focus-session: ${GAME_XP_FOCUS_SESSION:25}
+    xp-focus-session-min-minutes: ${GAME_XP_FOCUS_SESSION_MIN_MINUTES:25}
+    max-focus-sessions-per-day: ${GAME_MAX_FOCUS_SESSIONS_PER_DAY:8}
+    xp-create-card: ${GAME_XP_CREATE_CARD:2}
+    xp-create-note: ${GAME_XP_CREATE_NOTE:5}
+    max-create-xp-per-day: ${GAME_MAX_CREATE_XP_PER_DAY:20}
+    xp-daily-goal: ${GAME_XP_DAILY_GOAL:30}
+    xp-boss-win: ${GAME_XP_BOSS_WIN:100}
+    xp-quiz-base: ${GAME_XP_QUIZ_BASE:10}
+    xp-quiz-per-correct: ${GAME_XP_QUIZ_PER_CORRECT:1}
+    max-quizzes-per-day: ${GAME_MAX_QUIZZES_PER_DAY:5}
+    streak-bonus-per-seven-days: ${GAME_STREAK_BONUS_PER_SEVEN_DAYS:0.10}
+    max-streak-bonus: ${GAME_MAX_STREAK_BONUS:0.50}
+    daily-xp-cap: ${GAME_DAILY_XP_CAP:600}
+    level-xp-base: ${GAME_LEVEL_XP_BASE:100}
+    level-xp-increment: ${GAME_LEVEL_XP_INCREMENT:50}
+    level-up-coins: ${GAME_LEVEL_UP_COINS:20}
+    streak-freeze-cost: ${GAME_STREAK_FREEZE_COST:50}
+    max-freezes-held: ${GAME_MAX_FREEZES_HELD:2}
+
+    # --- Coins (Section 7.4) ---
+    coins-per-ten-xp: ${GAME_COINS_PER_TEN_XP:1}
+    coins-per-level-up: ${GAME_COINS_PER_LEVEL_UP:10}
+
+    # --- Badges (Section 7.5) ---
+    badge-seed: []
+
+    # --- Anti-cheat (Section 7.11) ---
+    too-fast-threshold-ms: ${GAME_TOO_FAST_THRESHOLD_MS:800}
+    too-fast-consecutive-count: ${GAME_TOO_FAST_CONSECUTIVE_COUNT:10}
+    offline-max-days-ago: ${GAME_OFFLINE_MAX_DAYS_AGO:7}
+    max-reviews-per-card-per-day: ${GAME_MAX_REVIEWS_PER_CARD_PER_DAY:1}
+
   cors:
     allowed-origin: ${FRONTEND_URL:http://localhost:5173}
   jwt:
@@ -59,6 +100,9 @@ app:
     daily-limit: ${AI_DAILY_LIMIT:10}
     max-source-chars: ${AI_MAX_SOURCE_CHARS:12000}
     timeout: ${AI_TIMEOUT:45s}
+    gemini-api-key: ${GEMINI_API_KEY:}
+    gemini-model: ${GEMINI_MODEL:gemini-2.0-flash-exp}
+    gemini-enabled: ${GEMINI_ENABLED:true}
   security:
     auth-rate-limit:
       enabled: ${AUTH_RATE_LIMIT_ENABLED:true}

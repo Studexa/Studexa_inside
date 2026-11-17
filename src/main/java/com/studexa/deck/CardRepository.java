@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CardRepository extends JpaRepository<Card, UUID> {
 
-    List<Card> findAllByDeckIdAndUserIdOrderByCreatedAtAsc(UUID deckId, UUID userId);
+    List<Card> findTop100ByDeckIdAndUserIdOrderByCreatedAtAsc(UUID deckId, UUID userId);
 
     long countByDeckIdAndUserId(UUID deckId, UUID userId);
 

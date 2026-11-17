@@ -10,9 +10,16 @@ public record AiProperties(
         String model,
         int dailyLimit,
         int maxSourceChars,
-        Duration timeout) {
+        Duration timeout,
+        String geminiApiKey,
+        String geminiModel,
+        boolean geminiEnabled) {
 
     public boolean configured() {
         return apiKey != null && !apiKey.isBlank();
+    }
+
+    public boolean geminiConfigured() {
+        return geminiApiKey != null && !geminiApiKey.isBlank();
     }
 }

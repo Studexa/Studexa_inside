@@ -31,8 +31,11 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Builds grounded prompts, enforces the daily AI quota, and validates all
- * model output before it reaches the client. The Anthropic key never leaves
- * the backend.
+ * model output before it reaches the client. The AI key never leaves the
+ * backend.
+ * <p>
+ * Picks the configured AI provider (Gemini or Anthropic) at runtime based on
+ * which API key is set.
  */
 @Service
 public class AiService {
@@ -55,7 +58,7 @@ public class AiService {
             Return ONLY valid JSON with no markdown fences, comments, or extra text.
             """;
 
-    private final AiClient aiClient;
+    private final List<AiClient> aiClients;
     private final AiProperties properties;
     private final AiUsageRepository usageRepository;
     private final DeckRepository deckRepository;
@@ -63,10 +66,11 @@ public class AiService {
     private final SubjectRepository subjectRepository;
     private final ObjectMapper objectMapper;
 
-    public AiService(AiClient aiClient, AiProperties properties, AiUsageRepository usageRepository,
-            DeckRepository deckRepository, CardRepository cardRepository,
-            SubjectRepository subjectRepository, ObjectMapper objectMapper) {
-        this.aiClient = aiClient;
+    public AiService(List<AiClient> aiClients, AiProperties properties,
+            AiUsageRepository usageRepository, DeckRepository deckRepository,
+            CardRepository cardRepository, SubjectRepository subjectRepository,
+            ObjectMapper objectMapper) {
+        this.aiClients = aiClients;
         this.properties = properties;
         this.usageRepository = usageRepository;
         this.deckRepository = deckRepository;
@@ -75,22 +79,44 @@ public class AiService {
         this.objectMapper = objectMapper;
     }
 
+    private AiClient client() {
+        // Prefer Gemini if its key is configured, otherwise fall back to Anthropic
+        if (properties.geminiConfigured()) {
+            return aiClients.stream()
+                    .filter(c -> c instanceof GeminiClient)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("GeminiClient not available"));
+        }
+        if (properties.configured()) {
+            return aiClients.stream()
+                    .filter(c -> c instanceof AnthropicClient)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("AnthropicClient not available"));
+        }
+        throw new IllegalStateException("No AI client configured");
+    }
+
     public AiGenerateResponse generate(UUID userId, AiGenerateRequest request) {
         requireConfigured();
         SourceContext context = sourceContext(userId, request);
         int count = Math.min(MAX_ITEMS, Math.max(1, request.count() == null ? 8 : request.count()));
         String language = "km".equals(request.language()) ? "Khmer" : "English";
 
-        ensureWithinLimit(userId);
-        String prompt = generationPrompt(request.task(), context, count, language);
-        String raw = aiClient.complete(GENERATE_SYSTEM, prompt);
-        List<AiCardItem> items = parseItems(raw, request.task(), context, count);
-        if (items.isEmpty()) {
-            throw ApiException.badGateway(
-                    "AI_INVALID_RESPONSE", "The AI did not return usable study items. Please try again.");
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        claimUsageSlot(userId, today);
+        try {
+            String prompt = generationPrompt(request.task(), context, count, language);
+            String raw = client().complete(GENERATE_SYSTEM, prompt);
+            List<AiCardItem> items = parseItems(raw, request.task(), context, count);
+            if (items.isEmpty()) {
+                throw ApiException.badGateway(
+                        "AI_INVALID_RESPONSE", "The AI did not return usable study items. Please try again.");
+            }
+            return new AiGenerateResponse(items);
+        } catch (Exception ex) {
+            releaseUsageSlot(userId, today);
+            throw ex;
         }
-        recordUsage(userId);
-        return new AiGenerateResponse(items);
     }
 
     public AiTutorResponse tutor(UUID userId, AiTutorRequest request) {
@@ -102,29 +128,34 @@ public class AiService {
         String source = limit(trimToNull(request.sourceText()), properties.maxSourceChars());
         String title = defaultTitle(trimToNull(request.sourceTitle()));
 
-        ensureWithinLimit(userId);
-        String prompt = tutorPrompt(question, source, title);
-        String raw = aiClient.complete(TUTOR_SYSTEM, prompt);
-        JsonNode root = parseJson(raw);
-        String answer = root.path("answer").asText("").trim();
-        if (answer.isEmpty()) {
-            throw ApiException.badGateway(
-                    "AI_INVALID_RESPONSE", "The AI did not return an answer. Please try again.");
-        }
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        claimUsageSlot(userId, today);
+        try {
+            String prompt = tutorPrompt(question, source, title);
+            String raw = client().complete(TUTOR_SYSTEM, prompt);
+            JsonNode root = parseJson(raw);
+            String answer = root.path("answer").asText("").trim();
+            if (answer.isEmpty()) {
+                throw ApiException.badGateway(
+                        "AI_INVALID_RESPONSE", "The AI did not return an answer. Please try again.");
+            }
 
-        List<AiTutorReference> references = new ArrayList<>();
-        if (source != null) {
-            for (JsonNode node : root.path("references")) {
-                String excerpt = excerptFrom(node.path("sourceExcerpt").asText(node.path("excerpt").asText("")), source);
-                if (excerpt != null) {
-                    references.add(new AiTutorReference(
-                            textOr(node.path("title").asText(""), title), excerpt));
+            List<AiTutorReference> references = new ArrayList<>();
+            if (source != null) {
+                for (JsonNode node : root.path("references")) {
+                    String excerpt = excerptFrom(node.path("sourceExcerpt").asText(node.path("excerpt").asText("")), source);
+                    if (excerpt != null) {
+                        references.add(new AiTutorReference(
+                                textOr(node.path("title").asText(""), title), excerpt));
+                    }
                 }
             }
-        }
 
-        recordUsage(userId);
-        return new AiTutorResponse(answer, references);
+            return new AiTutorResponse(answer, references);
+        } catch (Exception ex) {
+            releaseUsageSlot(userId, today);
+            throw ex;
+        }
     }
 
     private SourceContext sourceContext(UUID userId, AiGenerateRequest request) {
@@ -352,31 +383,38 @@ public class AiService {
     }
 
     private void requireConfigured() {
-        if (!properties.configured()) {
+        boolean anthropicOk = properties.configured();
+        boolean geminiOk = properties.geminiConfigured();
+        if (!anthropicOk && !geminiOk) {
             throw ApiException.serviceUnavailable(
                     "AI_NOT_CONFIGURED",
-                    "AI is not configured yet. Add ANTHROPIC_API_KEY to the backend environment.");
+                    properties.geminiConfigured()
+                            ? "AI is not configured yet. Add GEMINI_API_KEY to the backend environment."
+                            : "AI is not configured yet. Add ANTHROPIC_API_KEY to the backend environment.");
         }
     }
 
-    private void ensureWithinLimit(UUID userId) {
+    private void claimUsageSlot(UUID userId, LocalDate date) {
         if (properties.dailyLimit() <= 0) {
             return;
         }
-        AiUsageId id = usageId(userId);
-        int used = usageRepository.findById(id).map(AiUsage::getCalls).orElse(0);
-        if (used >= properties.dailyLimit()) {
+        int rows = usageRepository.tryIncrementUsage(userId, date, properties.dailyLimit());
+        if (rows == 0) {
             throw ApiException.tooManyRequests(
                     "AI_LIMIT_REACHED",
                     "You reached today's AI limit. Try again tomorrow.");
         }
     }
 
-    private void recordUsage(UUID userId) {
-        AiUsageId id = usageId(userId);
-        AiUsage usage = usageRepository.findById(id).orElseGet(() -> AiUsage.start(id));
-        usage.setCalls(usage.getCalls() + 1);
-        usageRepository.save(usage);
+    private void releaseUsageSlot(UUID userId, LocalDate date) {
+        if (properties.dailyLimit() <= 0) {
+            return;
+        }
+        try {
+            usageRepository.decrementUsage(userId, date);
+        } catch (Exception e) {
+            // Ignore rollback errors so the original exception is preserved
+        }
     }
 
     private static AiUsageId usageId(UUID userId) {

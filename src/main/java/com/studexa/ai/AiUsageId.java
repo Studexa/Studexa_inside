@@ -7,14 +7,8 @@ import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Embeddable
-@Getter
-@Setter
-@NoArgsConstructor
 public class AiUsageId implements Serializable {
 
     @Column(name = "user_id")
@@ -23,8 +17,27 @@ public class AiUsageId implements Serializable {
     @Column(name = "usage_date")
     private LocalDate usageDate;
 
+    public AiUsageId() {
+    }
+
     public AiUsageId(UUID userId, LocalDate usageDate) {
         this.userId = userId;
+        this.usageDate = usageDate;
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public void setUserId(UUID userId) {
+        this.userId = userId;
+    }
+
+    public LocalDate getUsageDate() {
+        return usageDate;
+    }
+
+    public void setUsageDate(LocalDate usageDate) {
         this.usageDate = usageDate;
     }
 

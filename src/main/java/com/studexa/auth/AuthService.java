@@ -4,6 +4,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
+import java.util.UUID;
+import java.text.Normalizer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,11 +71,11 @@ public class AuthService {
         User user = userRepository.save(
                 User.withPassword(email, passwordEncoder.encode(request.password())));
 
-        String nickname = hasText(request.nickname()) ? request.nickname().trim() : defaultNickname(email);
+        String nickname = hasText(request.nickname()) ? normalizeText(request.nickname().trim()) : defaultNickname(email);
         String language = hasText(request.language()) ? request.language() : Profile.DEFAULT_LANGUAGE;
         Profile profile = profileRepository.save(new Profile(user, nickname, language));
 
-        return result(user, profile, jwtService.issueTokens(user));
+        return result(user, profile, jwtService.issueTokens(user, UUID.randomUUID()));
     }
 
     @Transactional
@@ -88,7 +90,7 @@ public class AuthService {
         }
 
         Profile profile = requireProfile(user);
-        return result(user, profile, jwtService.issueTokens(user));
+        return result(user, profile, jwtService.issueTokens(user, UUID.randomUUID()));
     }
 
     @Transactional
@@ -101,14 +103,26 @@ public class AuthService {
                 .findByTokenHash(jwtService.hashRefreshToken(rawRefreshToken))
                 .orElseThrow(AuthService::invalidToken);
 
+        // Token reuse detection: if the presented token is already revoked,
+        // revoke the entire family and reject. This stops refresh-token
+        // replay attacks from compromising the user's session.
+        if (token.isRevoked()) {
+            UUID familyId = token.getFamilyId();
+            if (familyId != null) {
+                refreshTokenRepository.revokeAllForFamily(familyId);
+            }
+            throw invalidToken();
+        }
+
         if (!token.isUsable(clock.instant())) {
             throw invalidToken();
         }
 
+        UUID familyId = token.getFamilyId() != null ? token.getFamilyId() : UUID.randomUUID();
         token.setRevoked(true);
         User user = token.getUser();
         Profile profile = requireProfile(user);
-        return result(user, profile, jwtService.issueTokens(user));
+        return result(user, profile, jwtService.issueTokens(user, familyId));
     }
 
     @Transactional
@@ -117,7 +131,14 @@ public class AuthService {
             return;
         }
         refreshTokenRepository.findByTokenHash(jwtService.hashRefreshToken(rawRefreshToken))
-                .ifPresent(token -> token.setRevoked(true));
+                .ifPresent(token -> {
+                    UUID familyId = token.getFamilyId();
+                    if (familyId != null) {
+                        refreshTokenRepository.revokeAllForFamily(familyId);
+                    } else {
+                        token.setRevoked(true);
+                    }
+                });
     }
 
     /**
@@ -174,14 +195,14 @@ public class AuthService {
 
         Profile profile = profileRepository.findById(user.getId())
                 .orElseGet(() -> {
-                    String nickname = hasText(displayName) ? displayName.trim() : defaultNickname(normalizedEmail);
+                    String nickname = hasText(displayName) ? normalizeText(displayName.trim()) : defaultNickname(normalizedEmail);
                     if (nickname.length() > 50) {
                         nickname = nickname.substring(0, 50);
                     }
                     return profileRepository.save(new Profile(user, nickname, Profile.DEFAULT_LANGUAGE));
                 });
 
-        return result(user, profile, jwtService.issueTokens(user));
+        return result(user, profile, jwtService.issueTokens(user, UUID.randomUUID()));
     }
 
     private Profile requireProfile(User user) {
@@ -216,5 +237,16 @@ public class AuthService {
 
     private static boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    /**
+     * Normalizes text to Unicode NFC so visually identical Khmer strings
+     * compare equal (BUG-G03).
+     */
+    private static String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        return Normalizer.normalize(value, Normalizer.Form.NFC);
     }
 }

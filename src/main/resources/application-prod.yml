@@ -1,0 +1,31 @@
+spring:
+  # Production profile. Activate with SPRING_PROFILES_ACTIVE=prod.
+  # Database connection comes from the standard DB_URL/DB_USER/DB_PASSWORD env vars.
+
+logging:
+  level:
+    root: INFO
+    com.studexa: INFO
+
+server:
+  forward-headers-strategy: native
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+# OpenAPI / Swagger UI are disabled in production.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+app:
+  jwt:
+    refresh-cookie-secure: true

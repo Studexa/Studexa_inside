@@ -2,6 +2,7 @@ package com.studexa.subject;
 
 import java.util.List;
 import java.util.UUID;
+import java.text.Normalizer;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,7 +35,7 @@ public class SubjectService {
 
     @Transactional
     public SubjectResponse create(UUID userId, CreateSubjectRequest request) {
-        String name = requiredName(request.name());
+        String name = normalizeText(requiredName(request.name()));
         Subject subject = Subject.create(
                 userId,
                 name,
@@ -48,7 +49,7 @@ public class SubjectService {
         Subject subject = requireOwned(userId, subjectId);
 
         if (request.name() != null) {
-            subject.setName(requiredName(request.name()));
+            subject.setName(normalizeText(requiredName(request.name())));
         }
         if (request.color() != null) {
             subject.setColor(colorOrDefault(request.color()));
@@ -88,5 +89,16 @@ public class SubjectService {
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    /**
+     * Normalizes text to Unicode NFC so visually identical Khmer strings
+     * compare equal (BUG-G03).
+     */
+    private static String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        return Normalizer.normalize(value, Normalizer.Form.NFC);
     }
 }

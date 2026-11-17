@@ -2,13 +2,13 @@ package com.studexa.deck;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.text.Normalizer;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,7 +52,7 @@ public class CardService {
         }
         Map<UUID, Card> cards = cardRepository.findAllById(ids).stream()
                 .collect(Collectors.toMap(Card::getId, Function.identity()));
-        Map<UUID, Deck> decks = deckRepository.findAllByUserIdOrderByUpdatedAtDesc(userId).stream()
+        Map<UUID, Deck> decks = deckRepository.findTop100ByUserIdOrderByUpdatedAtDesc(userId).stream()
                 .collect(Collectors.toMap(Deck::getId, Function.identity()));
         Map<UUID, String> subjects = new java.util.HashMap<>();
         for (Deck deck : decks.values()) {
@@ -77,59 +77,10 @@ public class CardService {
         return result;
     }
 
-    @Transactional
-    public CardResponse review(UUID userId, UUID cardId, ReviewRating rating) {
-        Card card = requireOwned(userId, cardId);
-        CardProgress progress = progressRepository.findByCardIdAndUserId(cardId, userId)
-                .orElseGet(() -> CardProgress.newFor(cardId, userId, clock.instant()));
-
-        Instant now = clock.instant();
-        int interval = progress.getIntervalDays();
-        int reps = progress.getReps() + 1;
-        double ease = progress.getEase();
-        Instant dueAt;
-
-        switch (rating) {
-            case AGAIN -> {
-                ease = Math.max(1.3, ease - 0.2);
-                interval = 0;
-                if (progress.getReps() > 0) {
-                    progress.setLapses(progress.getLapses() + 1);
-                }
-                dueAt = now.plus(10, ChronoUnit.MINUTES);
-            }
-            case HARD -> {
-                ease = Math.max(1.3, ease - 0.15);
-                interval = interval == 0 ? 1 : Math.max(1, (int) Math.ceil(interval * 1.2));
-                dueAt = now.plus(interval, ChronoUnit.DAYS);
-            }
-            case GOOD -> {
-                interval = interval == 0 ? 1 : Math.max(1, (int) Math.round(interval * ease));
-                dueAt = now.plus(interval, ChronoUnit.DAYS);
-            }
-            case EASY -> {
-                ease = Math.min(3.2, ease + 0.15);
-                interval = interval == 0 ? 4 : Math.max(2, (int) Math.round(interval * ease * 1.3));
-                dueAt = now.plus(interval, ChronoUnit.DAYS);
-            }
-            default -> throw ApiException.badRequest("INVALID_RATING", "Choose a valid review rating.");
-        }
-
-        progress.setEase(ease);
-        progress.setIntervalDays(interval);
-        progress.setReps(reps);
-        progress.setDueAt(dueAt);
-        progress.setState(interval == 0 ? "LEARNING" : "REVIEW");
-        progress.setLastReviewedAt(now);
-        progressRepository.save(progress);
-
-        return CardResponse.from(card, false);
-    }
-
     @Transactional(readOnly = true)
     public List<CardResponse> list(UUID userId, UUID deckId) {
         deckService.requireOwned(userId, deckId);
-        List<Card> cards = cardRepository.findAllByDeckIdAndUserIdOrderByCreatedAtAsc(deckId, userId);
+        List<Card> cards = cardRepository.findTop100ByDeckIdAndUserIdOrderByCreatedAtAsc(deckId, userId);
         Map<UUID, CardProgress> progress = progressByCard(userId, cards);
         Instant now = clock.instant();
         return cards.stream()
@@ -172,10 +123,10 @@ public class CardService {
             card.setType(request.type());
         }
         if (request.front() != null) {
-            card.setFront(requiredText(request.front(), "Card front"));
+            card.setFront(normalizeText(requiredText(request.front(), "Card front")));
         }
         if (request.back() != null) {
-            card.setBack(requiredText(request.back(), "Card back"));
+            card.setBack(normalizeText(requiredText(request.back(), "Card back")));
         }
         if (request.extra() != null) {
             card.setExtra(sanitizeExtra(request.extra()));
@@ -222,8 +173,8 @@ public class CardService {
         if (request.type() == null) {
             throw ApiException.badRequest("INVALID_TYPE", "Card type is required.");
         }
-        String front = requiredText(request.front(), "Card front");
-        String back = requiredText(request.back(), "Card back");
+        String front = normalizeText(requiredText(request.front(), "Card front"));
+        String back = normalizeText(requiredText(request.back(), "Card back"));
         Map<String, Object> extra = sanitizeExtra(request.extra());
         validateChoices(request.type(), back, extra);
         return Card.create(
@@ -314,5 +265,16 @@ public class CardService {
             return null;
         }
         return value.length() <= max ? value : value.substring(0, max);
+    }
+
+    /**
+     * Normalizes text to Unicode NFC so visually identical Khmer strings
+     * compare equal (BUG-G03).
+     */
+    private static String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        return Normalizer.normalize(value, Normalizer.Form.NFC);
     }
 }

@@ -9,6 +9,7 @@ import java.util.Objects;
 public record SchedulerConfig(
         double initialEase,
         double minimumEase,
+        double maximumEase,
         double againEasePenalty,
         double hardEasePenalty,
         double easyEaseBonus,
@@ -29,6 +30,9 @@ public record SchedulerConfig(
         if (initialEase < minimumEase) {
             throw new IllegalArgumentException("initialEase must be at least minimumEase");
         }
+        if (maximumEase < initialEase) {
+            throw new IllegalArgumentException("maximumEase must be at least initialEase");
+        }
         if (jitterFraction < 0 || jitterFraction > 0.5) {
             throw new IllegalArgumentException("jitterFraction must be between 0 and 0.5");
         }
@@ -44,6 +48,7 @@ public record SchedulerConfig(
         return new SchedulerConfig(
                 2.5,
                 1.3,
+                3.0,
                 0.20,
                 0.15,
                 0.15,
@@ -64,6 +69,7 @@ public record SchedulerConfig(
         return new SchedulerConfig(
                 initialEase,
                 minimumEase,
+                maximumEase,
                 againEasePenalty,
                 hardEasePenalty,
                 easyEaseBonus,
@@ -84,6 +90,7 @@ public record SchedulerConfig(
         return new SchedulerConfig(
                 initialEase,
                 minimumEase,
+                maximumEase,
                 againEasePenalty,
                 hardEasePenalty,
                 easyEaseBonus,
