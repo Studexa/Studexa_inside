@@ -7,7 +7,6 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -20,6 +19,11 @@ import com.studexa.game.dto.AwardResult;
 import com.studexa.game.dto.BadgeDto;
 import com.studexa.game.dto.GameStateDto;
 import com.studexa.game.dto.XpEventDto;
+import com.studexa.deck.CardRepository;
+import com.studexa.deck.CardProgressRepository;
+import com.studexa.deck.ReviewLogRepository;
+import com.studexa.notes.NoteRepository;
+import com.studexa.subject.SubjectRepository;
 import com.studexa.user.Profile;
 import com.studexa.user.ProfileRepository;
 import com.studexa.user.UserRepository;
@@ -45,6 +49,11 @@ public class GameService {
     private final UserRepository userRepository;
     private final GameProperties properties;
     private final Clock clock;
+    private final CardRepository cardRepository;
+    private final CardProgressRepository cardProgressRepository;
+    private final ReviewLogRepository reviewLogRepository;
+    private final NoteRepository noteRepository;
+    private final SubjectRepository subjectRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -52,7 +61,10 @@ public class GameService {
     public GameService(GameStateRepository gameStateRepository,
             XpEventRepository xpEventRepository, BadgeRepository badgeRepository,
             UserBadgeRepository userBadgeRepository, ProfileRepository profileRepository,
-            UserRepository userRepository, GameProperties properties, Clock clock) {
+            UserRepository userRepository, GameProperties properties, Clock clock,
+            CardRepository cardRepository, CardProgressRepository cardProgressRepository,
+            ReviewLogRepository reviewLogRepository, NoteRepository noteRepository,
+            SubjectRepository subjectRepository) {
         this.gameStateRepository = gameStateRepository;
         this.xpEventRepository = xpEventRepository;
         this.badgeRepository = badgeRepository;
@@ -61,6 +73,11 @@ public class GameService {
         this.userRepository = userRepository;
         this.properties = properties;
         this.clock = clock;
+        this.cardRepository = cardRepository;
+        this.cardProgressRepository = cardProgressRepository;
+        this.reviewLogRepository = reviewLogRepository;
+        this.noteRepository = noteRepository;
+        this.subjectRepository = subjectRepository;
     }
 
     /**
@@ -135,6 +152,8 @@ public class GameService {
         int bonusXp = streakBonusPercent > 0
                 ? (int) Math.round(awardable * streakBonusPercent / 100.0)
                 : 0;
+        // Keep the configured daily cap inclusive of the streak bonus.
+        bonusXp = Math.min(bonusXp, Math.max(0, (int) remainingCap - awardable));
         int totalXp = awardable + bonusXp;
 
         // Award XP.
@@ -168,8 +187,10 @@ public class GameService {
 
         // Persist state and XP event.
         gameStateRepository.save(state);
+        // Persist the full amount applied to xpTotal so undo can reverse the
+        // base award and streak bonus together.
         XpEvent event = XpEvent.create(
-                UUID.randomUUID(), userId, source, awardable, referenceId, clock.instant());
+                UUID.randomUUID(), userId, source, totalXp, referenceId, clock.instant());
         xpEventRepository.save(event);
 
         // Award streak-freeze coins if applicable (handled by shop, not here).
@@ -204,7 +225,7 @@ public class GameService {
     }
 
     /**
-     * Consumes a streak freeze (costs coins, server-validated).
+     * Consumes one previously purchased streak freeze.
      */
     @Transactional
     public void consumeStreakFreeze(UUID userId) {
@@ -212,18 +233,10 @@ public class GameService {
         if (state.getStreakFreezes() <= 0) {
             throw ApiException.badRequest("NO_FREEZES", "You don't have any streak freezes.");
         }
-        if (state.getCoins() < properties.streakFreezeCost()) {
-            throw ApiException.badRequest("NOT_ENOUGH_COINS", "Not enough coins for a streak freeze.");
-        }
-        state.setCoins(state.getCoins() - properties.streakFreezeCost());
         state.setStreakFreezes(state.getStreakFreezes() - 1);
         state.setUpdatedAt(clock.instant());
         gameStateRepository.save(state);
 
-        XpEvent event = XpEvent.create(
-                UUID.randomUUID(), userId, "streak_freeze", -properties.streakFreezeCost(),
-                null, clock.instant());
-        xpEventRepository.save(event);
         entityManager.flush();
     }
 
@@ -385,49 +398,70 @@ public class GameService {
     /* ---------------------------------------------------------------- */
 
     private boolean hasCardCount(UUID userId, int count) {
-        return false; // placeholder - will be wired when card counts are available
+        return cardRepository.countByUserId(userId) >= count;
     }
 
     private boolean hasLongIntervalCards(UUID userId, int count, int minDays) {
-        return false; // placeholder
+        return cardProgressRepository.countByUserIdAndIntervalDaysGreaterThanEqual(userId, minDays) >= count;
     }
 
     private boolean hasFocusSessions(UUID userId, int count) {
-        return false; // placeholder - wired when timer exists
+        // Focus records currently accept client-reported completion times, so
+        // they are not suitable as proof for a reward-bearing badge yet.
+        return false;
     }
 
     private boolean hasLateNightStudies(UUID userId, int count, boolean before6am) {
-        return false; // placeholder
+        String zoneId = profileRepository.findById(userId)
+                .map(Profile::getTimezone)
+                .filter(value -> {
+                    try {
+                        ZoneId.of(value);
+                        return true;
+                    } catch (Exception ex) {
+                        return false;
+                    }
+                })
+                .orElse("Asia/Phnom_Penh");
+        long studyDays = before6am
+                ? reviewLogRepository.countEarlyReviewDays(userId, zoneId)
+                : reviewLogRepository.countLateNightReviewDays(userId, zoneId);
+        return studyDays >= count;
     }
 
     private boolean hasPerfectSession(UUID userId, int minCards) {
-        return false; // placeholder
+        // Review logs do not carry a session identifier, so a perfect session
+        // cannot yet be proven from persisted data.
+        return false;
     }
 
     private boolean hasBossWin(UUID userId) {
-        return false; // placeholder - wired when boss battles exist
+        // Win/loss is currently client-reported and must not grant badge coins.
+        return false;
     }
 
     private boolean hasNoteCount(UUID userId, int count) {
-        return false; // placeholder - wired when notes exist
+        return noteRepository.countByUserId(userId) >= count;
     }
 
     private boolean hasPerfectQuiz(UUID userId) {
-        return false; // placeholder - wired when quizzes exist
+        // The app does not persist authoritative quiz completion records yet.
+        return false;
     }
 
     private boolean hasCopiedDeckCount(UUID userId, int count) {
-        return false; // placeholder - wired when community exists
+        // There is no deck sharing/community record to count yet.
+        return false;
     }
 
     private boolean hasSubjectCount(UUID userId, int count) {
-        return false; // placeholder
+        return subjectRepository.countByUserId(userId) >= count;
     }
 
     private boolean hasUsedBothLanguages(UUID userId) {
-        Optional<Profile> profile = profileRepository.findById(userId);
-        return profile.map(p -> "en".equals(p.getLanguage()) || "km".equals(p.getLanguage()))
-                .orElse(false);
+        // The profile stores one language preference, not language usage
+        // history, so it cannot prove the user has studied in both languages.
+        return false;
     }
 
     private GameStateDto toDto(GameState state) {

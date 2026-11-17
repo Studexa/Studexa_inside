@@ -12,6 +12,8 @@ public interface CardRepository extends JpaRepository<Card, UUID> {
 
     long countByDeckIdAndUserId(UUID deckId, UUID userId);
 
+    long countByUserId(UUID userId);
+
     Optional<Card> findByIdAndUserId(UUID id, UUID userId);
 
     List<Card> findTop80ByDeckIdAndUserIdOrderByCreatedAtAsc(UUID deckId, UUID userId);

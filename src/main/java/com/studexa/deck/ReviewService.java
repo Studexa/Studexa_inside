@@ -22,6 +22,7 @@ import com.studexa.deck.dto.ReviewQueueResponse;
 import com.studexa.deck.dto.ReviewUndoResponse;
 import com.studexa.game.dto.AwardResult;
 import com.studexa.game.GameService;
+import com.studexa.game.GameProperties;
 import com.studexa.srs.CardState;
 import com.studexa.srs.CardStateType;
 import com.studexa.srs.QueueCard;
@@ -45,11 +46,12 @@ public class ReviewService {
     private final StudyQueueBuilder queueBuilder;
     private final Clock clock;
     private final GameService gameService;
+    private final GameProperties gameProperties;
 
     public ReviewService(DeckService deckService, CardRepository cardRepository,
             CardProgressRepository progressRepository, ReviewLogRepository reviewLogRepository,
             SubjectRepository subjectRepository, ProfileRepository profileRepository, Clock clock,
-            GameService gameService) {
+            GameService gameService, GameProperties gameProperties) {
         this.deckService = deckService;
         this.cardRepository = cardRepository;
         this.progressRepository = progressRepository;
@@ -60,6 +62,7 @@ public class ReviewService {
         this.queueBuilder = new StudyQueueBuilder();
         this.clock = clock;
         this.gameService = gameService;
+        this.gameProperties = gameProperties;
     }
 
     @Transactional(readOnly = true)
@@ -162,20 +165,20 @@ public class ReviewService {
         Map<Rating, String> labels = scheduler.previewLabels(next);
 
         // Award XP through the secure server-side game engine.
-        AwardResult award = gameService.awardXp(userId, "review_card", 3, clientReviewId,
+        AwardResult award = gameService.awardXp(userId, "review_card", gameProperties.xpPerReview(), clientReviewId,
                 Map.of("reviewsForCardToday", countReviewsForCardToday(userId, cardId)));
 
         // Bonus XP for Good or Easy ratings (once per card per day).
-        int bonusXp = 0;
+        int ratingBonusXp = 0;
         if (request.rating() == ReviewRating.GOOD || request.rating() == ReviewRating.EASY) {
             // Use the same clientReviewId so a retried answer never awards
             // the bonus XP twice (BUG-D01).
             AwardResult bonus = gameService.awardXp(userId, "review_card_bonus", 2,
                     clientReviewId, Map.of());
-            bonusXp = bonus.xpAwarded();
+            ratingBonusXp = bonus.xpAwarded() + bonus.bonusXp();
         }
 
-        int totalXp = award.xpAwarded() + bonusXp;
+        int totalXp = award.xpAwarded() + award.bonusXp() + ratingBonusXp;
 
         ReviewLog log = ReviewLog.create(
                 UUID.randomUUID(), clientReviewId, cardId, userId,
@@ -211,6 +214,11 @@ public class ReviewService {
         }
 
         ReviewLog last = logs.get(0);
+
+        if (last.getReviewedAt() == null
+                || last.getReviewedAt().plusSeconds(5).isBefore(clock.instant())) {
+            throw ApiException.conflict("UNDO_EXPIRED", "The 5-second undo window has expired.");
+        }
 
         CardProgress progress = progressRepository.findByCardIdAndUserId(cardId, userId)
                 .orElseThrow(() -> ApiException.notFound("Card progress not found."));

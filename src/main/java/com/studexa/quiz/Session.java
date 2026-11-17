@@ -52,6 +52,12 @@ public class Session {
     @Column(name = "ended_at")
     private Instant endedAt;
 
+    @Column(name = "current_question_id")
+    private UUID currentQuestionId;
+
+    @Column(name = "current_question_started_at")
+    private Instant currentQuestionStartedAt;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -85,6 +91,10 @@ public class Session {
     public void setStartedAt(Instant startedAt) { this.startedAt = startedAt; }
     public Instant getEndedAt() { return endedAt; }
     public void setEndedAt(Instant endedAt) { this.endedAt = endedAt; }
+    public UUID getCurrentQuestionId() { return currentQuestionId; }
+    public void setCurrentQuestionId(UUID currentQuestionId) { this.currentQuestionId = currentQuestionId; }
+    public Instant getCurrentQuestionStartedAt() { return currentQuestionStartedAt; }
+    public void setCurrentQuestionStartedAt(Instant currentQuestionStartedAt) { this.currentQuestionStartedAt = currentQuestionStartedAt; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

@@ -40,15 +40,18 @@ public class SessionController {
     private final SessionRepository sessionRepository;
     private final SessionPlayerRepository playerRepository;
     private final QuizRepository quizRepository;
+    private final QuestionRepository questionRepository;
     private final ObjectMapper objectMapper;
 
     public SessionController(SessionRepository sessionRepository,
             SessionPlayerRepository playerRepository,
             QuizRepository quizRepository,
+            QuestionRepository questionRepository,
             ObjectMapper objectMapper) {
         this.sessionRepository = sessionRepository;
         this.playerRepository = playerRepository;
         this.quizRepository = quizRepository;
+        this.questionRepository = questionRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -96,8 +99,13 @@ public class SessionController {
         if (session.getStatus() == Session.Status.ENDED) {
             throw ApiException.conflict("SESSION_ENDED", "This room has already finished.");
         }
-        session.setStatus(Session.Status.ACTIVE);
-        session.setStartedAt(java.time.Instant.now());
+        if (questionRepository.findByQuizIdOrderByCreatedAtAsc(session.getQuizId()).isEmpty()) {
+            throw ApiException.badRequest("QUIZ_HAS_NO_QUESTIONS", "Add at least one question before starting this room.");
+        }
+        if (session.getStatus() == Session.Status.WAITING) {
+            session.setStatus(Session.Status.ACTIVE);
+            session.setStartedAt(java.time.Instant.now());
+        }
         session = sessionRepository.save(session);
         return toResponse(session);
     }
@@ -203,9 +211,17 @@ public class SessionController {
     }
 
     private String settingsJson(CreateSessionRequest request) {
+        int questionCount = request.numQuestions() != null ? request.numQuestions() : 10;
+        int timePerQuestion = request.timePerQuestion() != null ? request.timePerQuestion() : 30;
+        if (questionCount < 1 || questionCount > 50) {
+            throw ApiException.badRequest("INVALID_QUESTION_COUNT", "Question count must be between 1 and 50.");
+        }
+        if (timePerQuestion < 5 || timePerQuestion > 600) {
+            throw ApiException.badRequest("INVALID_TIME_LIMIT", "Question time must be between 5 and 600 seconds.");
+        }
         Map<String, Object> settings = new LinkedHashMap<>();
-        settings.put("numQuestions", request.numQuestions() != null ? request.numQuestions() : 10);
-        settings.put("timePerQuestion", request.timePerQuestion() != null ? request.timePerQuestion() : 30);
+        settings.put("numQuestions", questionCount);
+        settings.put("timePerQuestion", timePerQuestion);
         settings.put("difficulty", request.difficulty() != null ? request.difficulty() : "medium");
         try {
             return objectMapper.writeValueAsString(settings);
