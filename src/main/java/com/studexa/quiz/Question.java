@@ -3,9 +3,6 @@ package com.studexa.quiz;
 import java.time.Instant;
 import java.util.UUID;
 
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -16,7 +13,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 /**
- * A question inside a quiz. Multiple choice options are stored as JSONB.
+ * A question inside a quiz. Multiple choice options are JSON encoded in a TEXT column.
  */
 @Entity
 @Table(name = "questions")
@@ -39,8 +36,7 @@ public class Question {
     @Column(nullable = false, length = 20)
     private Type type = Type.MULTIPLE_CHOICE;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "JSONB")
+    @Column(columnDefinition = "TEXT")
     private String options; // JSON array of {id, text}
 
     @Column(nullable = false)

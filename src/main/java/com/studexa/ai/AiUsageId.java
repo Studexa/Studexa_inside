@@ -11,6 +11,8 @@ import jakarta.persistence.Embeddable;
 @Embeddable
 public class AiUsageId implements Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     @Column(name = "user_id")
     private UUID userId;
 

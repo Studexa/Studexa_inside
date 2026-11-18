@@ -97,12 +97,18 @@ public class QuizStompController {
     }
 
     /**
-     * Host advances to a question. Payload: { roomCode, questionIndex, questionId, endsAt }.
+     * Host advances to a question. Payload: { roomCode, questionIndex, questionId }.
      * The question is loaded server-side so the correct answer is never broadcast.
      */
     @MessageMapping("/quiz.next")
+    @Transactional
     public void onNextQuestion(@Payload NextQuestionPayload payload, Principal principal) {
         Session session = requireHost(payload.roomCode(), principal);
+        session = sessionRepository.findByIdForUpdate(session.getId())
+                .orElseThrow(() -> new MessagingException("Room not found."));
+        if (session.getStatus() != Session.Status.ACTIVE) {
+            throw new MessagingException("This room is not active.");
+        }
         if (payload.questionId() == null) {
             throw new MessagingException("questionId is required.");
         }
@@ -113,8 +119,14 @@ public class QuizStompController {
             throw new MessagingException("Question does not belong to this room's quiz.");
         }
 
-        Map<String, Object> event = broadcastQuestion(session, question,
-                payload.questionIndex(), payload.endsAt());
+        Instant startedAt = Instant.now();
+        session.setCurrentQuestionId(question.getId());
+        session.setCurrentQuestionStartedAt(startedAt);
+        sessionRepository.save(session);
+        int limitSeconds = question.getTimeLimitSeconds() == null
+                ? 30 : Math.max(1, Math.min(600, question.getTimeLimitSeconds()));
+        long endsAt = startedAt.plusSeconds(limitSeconds).toEpochMilli();
+        broadcastQuestion(session, question, payload.questionIndex(), endsAt);
     }
 
     /**
@@ -148,6 +160,11 @@ public class QuizStompController {
     @Transactional
     public void onEnd(@Payload EndPayload payload, Principal principal) {
         Session session = requireHost(payload.roomCode(), principal);
+        session = sessionRepository.findByIdForUpdate(session.getId())
+                .orElseThrow(() -> new MessagingException("Room not found."));
+        if (session.getStatus() != Session.Status.ACTIVE) {
+            throw new MessagingException("This room is not active.");
+        }
 
         List<SessionPlayer> players = new ArrayList<>(
                 playerRepository.findBySessionIdOrderByTotalScoreDesc(session.getId()));

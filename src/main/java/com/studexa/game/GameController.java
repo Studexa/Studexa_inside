@@ -49,7 +49,7 @@ public class GameController {
     }
 
     /**
-     * Consumes a streak freeze (50 coins). Server-validated.
+     * Consumes one streak freeze already purchased from the shop.
      */
     @PostMapping("/streak-freeze/consume")
     @ResponseStatus(HttpStatus.NO_CONTENT)

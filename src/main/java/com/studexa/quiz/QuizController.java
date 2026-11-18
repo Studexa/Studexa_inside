@@ -3,6 +3,9 @@ package com.studexa.quiz;
 import java.util.List;
 import java.util.UUID;
 
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -31,10 +34,13 @@ public class QuizController {
 
     private final QuizRepository quizRepository;
     private final QuestionRepository questionRepository;
+    private final ObjectMapper objectMapper;
 
-    public QuizController(QuizRepository quizRepository, QuestionRepository questionRepository) {
+    public QuizController(QuizRepository quizRepository, QuestionRepository questionRepository,
+            ObjectMapper objectMapper) {
         this.quizRepository = quizRepository;
         this.questionRepository = questionRepository;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping
@@ -96,10 +102,20 @@ public class QuizController {
         if (request.correctAnswer() == null || request.correctAnswer().isBlank()) {
             throw ApiException.badRequest("INVALID_QUESTION", "A correct answer is required.");
         }
+        Question.Type questionType = type(request.type());
+        int timeLimit = request.timeLimitSeconds() == null ? 30 : request.timeLimitSeconds();
+        if (timeLimit < 5 || timeLimit > 600) {
+            throw ApiException.badRequest("INVALID_TIME_LIMIT", "Question time must be between 5 and 600 seconds.");
+        }
+        if (questionType == Question.Type.MULTIPLE_CHOICE
+                && !hasValidChoices(request.options(), request.correctAnswer())) {
+            throw ApiException.badRequest("INVALID_OPTIONS",
+                    "A multiple-choice question needs at least two choices, including the correct answer.");
+        }
         Question question = new Question(
                 quiz.getId(),
                 request.text().trim(),
-                type(request.type()),
+                questionType,
                 request.options(),
                 request.correctAnswer().trim(),
                 request.explanation(),
@@ -107,7 +123,7 @@ public class QuizController {
                 request.topic(),
                 request.subtopic(),
                 difficulty(request.difficulty()),
-                request.timeLimitSeconds());
+                timeLimit);
         question = questionRepository.save(question);
         return toResponse(question);
     }
@@ -156,6 +172,34 @@ public class QuizController {
             return Question.Difficulty.valueOf(value.trim().toUpperCase());
         } catch (IllegalArgumentException ex) {
             throw ApiException.badRequest("INVALID_DIFFICULTY", "Unknown difficulty.");
+        }
+    }
+
+    private boolean hasValidChoices(String options, String correctAnswer) {
+        if (options == null || options.isBlank()) return false;
+        try {
+            JsonNode node = objectMapper.readTree(options);
+            if (!node.isArray() || node.size() < 2) return false;
+            boolean correctFound = false;
+            java.util.Set<String> choices = new java.util.HashSet<>();
+            for (JsonNode option : node) {
+                String choice = option.isTextual() ? option.asText()
+                        : option.hasNonNull("id") ? option.get("id").asText()
+                        : option.hasNonNull("text") ? option.get("text").asText() : null;
+                if (choice == null || choice.isBlank()) return false;
+                String normalized = choice.trim().toLowerCase(java.util.Locale.ROOT);
+                if (!choices.add(normalized)) return false;
+                if (normalized.equals(correctAnswer.trim().toLowerCase(java.util.Locale.ROOT))) {
+                    correctFound = true;
+                }
+                if (!option.isTextual() && option.hasNonNull("text")
+                        && option.get("text").asText().trim().equalsIgnoreCase(correctAnswer.trim())) {
+                    correctFound = true;
+                }
+            }
+            return correctFound;
+        } catch (JacksonException ex) {
+            return false;
         }
     }
 

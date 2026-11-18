@@ -70,8 +70,10 @@ public class ShopService {
         GameState state = gameStateRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> ApiException.badRequest("NO_GAME_STATE", "Game state not found."));
 
-        // Prevent duplicate purchases (also enforced by the DB unique constraint).
-        if (userShopItemRepository.existsByUserIdAndShopItemId(userId, shopItemId)) {
+        boolean isFreeze = "freeze".equals(item.getKind());
+        // Consumable freezes may be bought more than once, up to the inventory
+        // cap. Permanent cosmetics and themes remain single-purchase items.
+        if (!isFreeze && userShopItemRepository.existsByUserIdAndShopItemId(userId, shopItemId)) {
             throw ApiException.badRequest("ALREADY_OWNED", "You already own this item.");
         }
 
@@ -90,10 +92,8 @@ public class ShopService {
         userShopItemRepository.save(purchase);
 
         // Deduct coins and apply freeze under the same lock.
-        boolean isFreeze = false;
-        if ("freeze".equals(item.getKind())) {
+        if (isFreeze) {
             state.setStreakFreezes(state.getStreakFreezes() + 1);
-            isFreeze = true;
         }
         state.setCoins(state.getCoins() - item.getPrice());
         state.setUpdatedAt(clock.instant());

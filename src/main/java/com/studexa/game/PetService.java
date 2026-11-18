@@ -43,10 +43,14 @@ public class PetService {
     /**
      * Get or create the student's pet. Mood is computed from study activity.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public PetDto getPet(UUID userId) {
-        Pet pet = petRepository.findById(userId)
-                .orElseGet(() -> createPet(userId));
+        petRepository.findById(userId).orElseGet(() -> createPet(userId));
+        // Keep the values returned by GET current; clients should not need to
+        // know about separate maintenance endpoints for derived pet state.
+        updateMood(userId);
+        updateStage(userId);
+        Pet pet = petRepository.findById(userId).orElseThrow();
         return toDto(pet);
     }
 
@@ -64,10 +68,11 @@ public class PetService {
         // Derive studiedToday from review logs, not from the client.
         ZoneId zoneId = zoneIdFor(userId);
         LocalDate today = clock.instant().atZone(zoneId).toLocalDate();
-        boolean studiedToday = reviewLogRepository.findByCardIdAndUserIdOrderByReviewedAtDesc(
-                null, userId).stream()
-                .anyMatch(log -> log.getReviewedAt() != null
-                        && log.getReviewedAt().atZone(zoneId).toLocalDate().equals(today));
+        Instant dayStart = today.atStartOfDay(zoneId).toInstant();
+        Instant nextDayStart = today.plusDays(1).atStartOfDay(zoneId).toInstant();
+        boolean studiedToday = reviewLogRepository
+                .existsByUserIdAndReviewedAtGreaterThanEqualAndReviewedAtLessThan(
+                        userId, dayStart, nextDayStart);
 
         String mood = Pet.moodFor(studiedToday, streak);
         if (!mood.equals(pet.getMood())) {

@@ -10,6 +10,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface FocusSessionRepository extends JpaRepository<FocusSession, UUID> {
 
+    long countByUserId(UUID userId);
+
     List<FocusSession> findByUserIdOrderByCompletedAtDesc(UUID userId);
 
     @Query("SELECT f FROM FocusSession f WHERE f.userId = :userId AND f.completedAt >= :start AND f.completedAt < :end")

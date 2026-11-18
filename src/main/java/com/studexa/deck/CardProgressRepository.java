@@ -16,6 +16,8 @@ public interface CardProgressRepository extends JpaRepository<CardProgress, UUID
 
     Optional<CardProgress> findByCardIdAndUserId(UUID cardId, UUID userId);
 
+    long countByUserIdAndIntervalDaysGreaterThanEqual(UUID userId, int intervalDays);
+
     @Query(value = """
             SELECT count(*)
             FROM card_progress p

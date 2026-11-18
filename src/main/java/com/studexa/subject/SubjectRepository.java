@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface SubjectRepository extends JpaRepository<Subject, UUID> {
 
+    long countByUserId(UUID userId);
+
     List<Subject> findAllByUserIdOrderByCreatedAtAsc(UUID userId);
 
     List<Subject> findAllByUserIdAndArchivedOrderByCreatedAtAsc(UUID userId, boolean archived);

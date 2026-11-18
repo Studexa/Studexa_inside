@@ -2,6 +2,8 @@ package com.studexa.quiz;
 
 import java.util.List;
 import java.util.UUID;
+import java.time.Duration;
+import java.time.Instant;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.studexa.common.ApiException;
 import com.studexa.common.CurrentUser;
@@ -27,8 +30,8 @@ import jakarta.validation.Valid;
  * <p>Security rules (doc §9.3): the caller can only answer as their own player,
  * the question must belong to the session's quiz, one answer per question is
  * accepted, and correctness plus score are computed here — never taken from the
- * client. The client only supplies which option was picked and how long it took,
- * and the reported time is clamped to the question's limit.
+ * client. The client only supplies which option was picked; response time is
+ * measured from the server-side timestamp for the active question.
  */
 @RestController
 @RequestMapping("/api/v1/answers")
@@ -36,6 +39,8 @@ public class AnswerController {
 
     private static final int BASE_SCORE = 1000;
     private static final int DEFAULT_TIME_LIMIT_SECONDS = 30;
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON =
+            new com.fasterxml.jackson.databind.ObjectMapper();
 
     private final AnswerRepository answerRepository;
     private final SessionPlayerRepository playerRepository;
@@ -54,6 +59,7 @@ public class AnswerController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
     public QuizDto.AnswerResponse submitAnswer(@AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody AnswerRequest request) {
         UUID userId = CurrentUser.id(jwt);
@@ -65,11 +71,13 @@ public class AnswerController {
             throw ApiException.badRequest("INVALID_ANSWER", "Select an answer first.");
         }
 
-        SessionPlayer player = requireOwnedPlayer(userId, request.sessionPlayerId());
+        requireOwnedPlayer(userId, request.sessionPlayerId());
+        SessionPlayer player = playerRepository.findByIdForUpdate(request.sessionPlayerId())
+                .orElseThrow(() -> ApiException.notFound("Player not found."));
         Question question = questionRepository.findById(request.questionId())
                 .orElseThrow(() -> ApiException.notFound("Question not found."));
 
-        Session session = sessionRepository.findById(player.getSessionId())
+        Session session = sessionRepository.findByIdForUpdate(player.getSessionId())
                 .orElseThrow(() -> ApiException.notFound("Session not found."));
         if (!question.getQuizId().equals(session.getQuizId())) {
             throw ApiException.notFound("Question not found.");
@@ -77,19 +85,29 @@ public class AnswerController {
         if (session.getStatus() != Session.Status.ACTIVE) {
             throw ApiException.conflict("SESSION_NOT_ACTIVE", "This quiz is not running.");
         }
+        if (!question.getId().equals(session.getCurrentQuestionId())
+                || session.getCurrentQuestionStartedAt() == null) {
+            throw ApiException.conflict("QUESTION_NOT_ACTIVE", "This question is not currently active.");
+        }
 
         // One answer per player per question (retries are not re-scored).
         if (!answerRepository.findBySessionPlayerIdAndQuestionId(player.getId(), question.getId()).isEmpty()) {
             throw ApiException.conflict("ALREADY_ANSWERED", "You already answered this question.");
         }
 
-        boolean isCorrect = question.getCorrectAnswer() != null
-                && question.getCorrectAnswer().equalsIgnoreCase(request.selectedAnswer().trim());
+        boolean isCorrect = isCorrectAnswer(question, request.selectedAnswer().trim());
+
+        if (question.getType() == Question.Type.MULTIPLE_CHOICE
+                && !isValidOption(question.getOptions(), request.selectedAnswer().trim())) {
+            throw ApiException.badRequest("INVALID_ANSWER", "Choose one of the available options.");
+        }
 
         int timeLimitMs = timeLimitMs(question);
-        int responseTimeMs = request.responseTimeMs() == null
-                ? timeLimitMs
-                : Math.max(0, Math.min(timeLimitMs, request.responseTimeMs()));
+        long elapsedMs = Math.max(0, Duration.between(session.getCurrentQuestionStartedAt(), Instant.now()).toMillis());
+        if (elapsedMs > timeLimitMs) {
+            throw ApiException.conflict("ANSWER_TIME_EXPIRED", "The time for this question has expired.");
+        }
+        int responseTimeMs = (int) elapsedMs;
         int score = calculateScore(isCorrect, responseTimeMs, timeLimitMs);
 
         Answer answer = new Answer(
@@ -132,8 +150,50 @@ public class AnswerController {
 
     private static int timeLimitMs(Question question) {
         Integer seconds = question.getTimeLimitSeconds();
-        int safe = seconds == null || seconds <= 0 ? DEFAULT_TIME_LIMIT_SECONDS : seconds;
+        int safe = seconds == null ? DEFAULT_TIME_LIMIT_SECONDS : Math.max(1, Math.min(600, seconds));
         return safe * 1000;
+    }
+
+    private static boolean isValidOption(String options, String selected) {
+        if (options == null || options.isBlank()) return false;
+        try {
+            com.fasterxml.jackson.databind.JsonNode node = JSON.readTree(options);
+            if (!node.isArray()) return false;
+            for (com.fasterxml.jackson.databind.JsonNode option : node) {
+                String value = option.isTextual() ? option.asText()
+                        : option.hasNonNull("text") ? option.get("text").asText() : null;
+                String id = option.hasNonNull("id") ? option.get("id").asText() : null;
+                if ((value != null && value.trim().equalsIgnoreCase(selected))
+                        || (id != null && id.trim().equalsIgnoreCase(selected))) return true;
+            }
+        } catch (com.fasterxml.jackson.core.JsonProcessingException ignored) {
+            return false;
+        }
+        return false;
+    }
+
+    private static boolean isCorrectAnswer(Question question, String selected) {
+        String correct = question.getCorrectAnswer();
+        if (correct == null) return false;
+        if (correct.equalsIgnoreCase(selected)) return true;
+        if (question.getOptions() == null) return false;
+        try {
+            com.fasterxml.jackson.databind.JsonNode options = JSON.readTree(question.getOptions());
+            if (!options.isArray()) return false;
+            for (com.fasterxml.jackson.databind.JsonNode option : options) {
+                if (option.isTextual()) continue;
+                String id = option.hasNonNull("id") ? option.get("id").asText() : null;
+                String text = option.hasNonNull("text") ? option.get("text").asText() : null;
+                boolean selectedThisOption = (id != null && id.equalsIgnoreCase(selected))
+                        || (text != null && text.equalsIgnoreCase(selected));
+                boolean optionIsCorrect = (id != null && id.equalsIgnoreCase(correct))
+                        || (text != null && text.equalsIgnoreCase(correct));
+                if (selectedThisOption && optionIsCorrect) return true;
+            }
+        } catch (com.fasterxml.jackson.core.JsonProcessingException ignored) {
+            return false;
+        }
+        return false;
     }
 
     private int calculateScore(boolean isCorrect, int responseTimeMs, int timeLimitMs) {

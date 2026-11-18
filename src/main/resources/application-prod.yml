@@ -1,6 +1,11 @@
 spring:
   # Production profile. Activate with SPRING_PROFILES_ACTIVE=prod.
   # Database connection comes from the standard DB_URL/DB_USER/DB_PASSWORD env vars.
+  datasource:
+    hikari:
+      maximum-pool-size: 4
+      minimum-idle: 0
+      idle-timeout: 60000
 
 logging:
   level:
@@ -18,6 +23,8 @@ management:
   endpoint:
     health:
       show-details: never
+      probes:
+        enabled: true
 
 # OpenAPI / Swagger UI are disabled in production.
 springdoc:
@@ -27,5 +34,10 @@ springdoc:
     enabled: false
 
 app:
+  beta:
+    enabled: true
+  oauth:
+    google:
+      enabled: false
   jwt:
     refresh-cookie-secure: true

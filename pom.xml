@@ -162,6 +162,11 @@
 				<version>3.14.0</version>
 				<configuration>
 					<release>21</release>
+					<showWarnings>true</showWarnings>
+					<proc>full</proc>
+					<compilerArgs>
+						<arg>-Xlint:all,-processing</arg>
+					</compilerArgs>
 				</configuration>
 			</plugin>
 		</plugins>

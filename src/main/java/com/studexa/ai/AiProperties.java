@@ -20,6 +20,6 @@ public record AiProperties(
     }
 
     public boolean geminiConfigured() {
-        return geminiApiKey != null && !geminiApiKey.isBlank();
+        return geminiEnabled && geminiApiKey != null && !geminiApiKey.isBlank();
     }
 }

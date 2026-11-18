@@ -1,12 +1,18 @@
 package com.studexa.ai;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,6 +31,7 @@ import com.studexa.deck.CardRepository;
 import com.studexa.deck.DeckRepository;
 import com.studexa.deck.CardType;
 import com.studexa.subject.SubjectRepository;
+import com.studexa.common.ApiException;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -53,7 +60,7 @@ class AiServiceTest {
         // mocked List cannot have its stream() default method stubbed.
         service = new AiService(List.of(anthropicClient), properties, usageRepository,
                 deckRepository, cardRepository, subjectRepository,
-                JsonMapper.builder().build());
+                JsonMapper.builder().build(), Clock.fixed(Instant.parse("2026-11-17T23:59:00Z"), ZoneOffset.UTC));
         // The service claims a daily quota slot via tryIncrementUsage; a
         // return of 1 means the slot was claimed successfully.
         when(usageRepository.tryIncrementUsage(any(), any(), anyInt())).thenReturn(1);
@@ -124,5 +131,49 @@ class AiServiceTest {
         assertThat(response.references()).hasSize(1);
         assertThat(response.references().getFirst().excerpt())
                 .isEqualTo("Plants use sunlight to make food.");
+    }
+
+    @Test
+    void rejectsEmptyGeneratedCardsAndRefundsQuota() {
+        when(anthropicClient.complete(anyString(), anyString())).thenReturn(
+                "{\"items\":[{\"type\":\"BASIC\",\"front\":\"   \",\"back\":\"\"}]}");
+        UUID userId = UUID.randomUUID();
+        assertThatThrownBy(() -> service.generate(userId,
+                new AiGenerateRequest(AiTask.FLASHCARDS, null, "Study notes", "Notes", 1, "en")))
+                .isInstanceOf(ApiException.class);
+        verify(usageRepository).decrementUsage(userId, LocalDate.of(2026, 11, 17));
+    }
+
+    @Test
+    void rejectsOversizedTutorAnswerAndRefundsQuota() {
+        when(anthropicClient.complete(anyString(), anyString())).thenReturn(
+                "{\"answer\":\"" + "a".repeat(6001) + "\",\"references\":[]}");
+        UUID userId = UUID.randomUUID();
+        assertThatThrownBy(() -> service.tutor(userId, new AiTutorRequest("Explain", null, null)))
+                .isInstanceOf(ApiException.class);
+        verify(usageRepository).decrementUsage(userId, LocalDate.of(2026, 11, 17));
+    }
+
+    @Test
+    void citationsMustMatchExactlyAndUseAttachedTitle() {
+        when(anthropicClient.complete(anyString(), anyString())).thenReturn("""
+                {"answer":"Light helps plants.","references":[
+                  {"title":"Invented book","sourceExcerpt":"Plants use sunlight."},
+                  {"title":"Invented book","sourceExcerpt":"plants use sunlight."}]}
+                """);
+        var response = service.tutor(UUID.randomUUID(),
+                new AiTutorRequest("Explain", "Plants use sunlight.", "My biology notes"));
+        assertThat(response.references()).hasSize(1);
+        assertThat(response.references().getFirst().title()).isEqualTo("My biology notes");
+    }
+
+    @Test
+    void rejectsQuizWithOnlyTwoChoices() {
+        when(anthropicClient.complete(anyString(), anyString())).thenReturn("""
+                {"items":[{"type":"MULTIPLE_CHOICE","front":"Choose","back":"a","choices":["a","b"]}]}
+                """);
+        assertThatThrownBy(() -> service.generate(UUID.randomUUID(),
+                new AiGenerateRequest(AiTask.QUIZ, null, "Study notes", "Notes", 1, "en")))
+                .isInstanceOf(ApiException.class);
     }
 }

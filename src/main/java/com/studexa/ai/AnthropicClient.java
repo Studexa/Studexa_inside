@@ -72,8 +72,8 @@ public class AnthropicClient implements AiClient {
             JsonNode response = objectMapper.readTree(raw);
             StringBuilder text = new StringBuilder();
             for (JsonNode block : response.path("content")) {
-                if ("text".equals(block.path("type").asText())) {
-                    text.append(block.path("text").asText());
+                if ("text".equals(block.path("type").asString())) {
+                    text.append(block.path("text").asString());
                 }
             }
             if (text.isEmpty()) {
