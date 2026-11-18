@@ -46,7 +46,8 @@ public class SecurityConfig {
             ObjectProvider<ClientRegistrationRepository> clientRegistrations,
             ObjectProvider<OAuth2LoginSuccessHandler> oauth2SuccessHandlers) throws Exception {
 
-        boolean googleLoginEnabled = clientRegistrations.getIfAvailable() != null;
+        boolean betaEnabled = env.getProperty("app.beta.enabled", Boolean.class, false);
+        boolean googleLoginEnabled = !betaEnabled && clientRegistrations.getIfAvailable() != null;
         boolean prod = env.acceptsProfiles(Profiles.of("prod"));
 
         http
@@ -58,6 +59,11 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> {
+                    if (betaEnabled) {
+                        auth.requestMatchers("/quiz", "/quiz/**", "/api/v1/quizzes", "/api/v1/quizzes/**",
+                                "/api/v1/sessions", "/api/v1/sessions/**", "/api/v1/answers",
+                                "/api/v1/answers/**", "/oauth2/**", "/login/oauth2/**").denyAll();
+                    }
                     auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // Public: health + auth (no session needed)
                         .requestMatchers("/api/v1/health", "/api/v1/auth/**").permitAll()
@@ -68,6 +74,7 @@ public class SecurityConfig {
                         // Actuator health and OAuth2 login
                         .requestMatchers(
                                 "/actuator/health",
+                                "/actuator/health/liveness",
                                 "/oauth2/**",
                                 "/login/oauth2/**")
                         .permitAll();

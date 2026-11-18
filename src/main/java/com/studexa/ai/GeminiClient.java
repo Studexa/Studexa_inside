@@ -41,7 +41,6 @@ public class GeminiClient implements AiClient {
                 .build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(properties.timeout());
-        String model = properties.geminiModel() != null ? properties.geminiModel() : "gemini-2.0-flash-exp";
         this.restClient = RestClient.builder()
                 .baseUrl("https://generativelanguage.googleapis.com/v1beta")
                 .requestFactory(requestFactory)
@@ -61,13 +60,18 @@ public class GeminiClient implements AiClient {
                 "contents", List.of(Map.of("parts", List.of(Map.of("text", userPrompt)))),
                 "generationConfig", Map.of(
                         "temperature", 0.4,
+                        "responseMimeType", "application/json",
                         "maxOutputTokens", 2400));
 
-        String model = properties.geminiModel() != null ? properties.geminiModel() : "gemini-2.0-flash-exp";
+        String model = properties.geminiModel();
+        if (model == null || !model.matches("[a-zA-Z0-9][a-zA-Z0-9._-]*")) {
+            throw ApiException.serviceUnavailable("AI_NOT_CONFIGURED", "The Gemini model is not configured.");
+        }
 
         try {
             String raw = restClient.post()
-                    .uri("/models/" + model + ":generateContent?key=" + properties.geminiApiKey())
+                    .uri("/models/{model}:generateContent", model)
+                    .header("x-goog-api-key", properties.geminiApiKey())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
@@ -82,9 +86,14 @@ public class GeminiClient implements AiClient {
                 JsonNode content = candidates.path(0).path("content");
                 JsonNode parts = content.path("parts");
                 if (parts.isArray() && parts.size() > 0) {
-                    String text = parts.path(0).path("text").asString();
-                    if (text != null && !text.isBlank()) {
-                        return text;
+                    StringBuilder text = new StringBuilder();
+                    for (JsonNode part : parts) {
+                        if (!part.path("thought").asBoolean(false) && part.path("text").isString()) {
+                            text.append(part.path("text").asString());
+                        }
+                    }
+                    if (!text.toString().isBlank()) {
+                        return text.toString();
                     }
                 }
             }
@@ -93,12 +102,12 @@ public class GeminiClient implements AiClient {
             throw ex;
         } catch (RestClientResponseException ex) {
             log.warn("Gemini request failed with status {}", ex.getStatusCode().value());
-            String message = ex.getStatusCode().value() == 429
-                    ? "AI is busy right now. Please try again in a moment."
-                    : "The AI service could not complete that request. Please try again.";
-            throw ApiException.badGateway("AI_ERROR", message);
+            if (ex.getStatusCode().value() == 429) {
+                throw ApiException.tooManyRequests("AI_PROVIDER_LIMIT", "Gemini is busy. Please try again later.");
+            }
+            throw ApiException.badGateway("AI_ERROR", "The AI service could not complete that request. Please try again.");
         } catch (ResourceAccessException ex) {
-            log.warn("Gemini request timed out or could not connect", ex);
+            log.warn("Gemini request timed out or could not connect");
             throw ApiException.badGateway("AI_TIMEOUT", "The AI took too long to answer. Please try again.");
         }
     }

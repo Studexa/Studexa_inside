@@ -14,7 +14,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Controller
 public class SpaFallbackController {
 
-    @GetMapping(value = "/{path:[^\\.]*}")
+    @GetMapping({"/login", "/register", "/auth/callback", "/demo", "/onboarding",
+            "/study", "/study/**", "/subjects", "/notes", "/notes/{noteId}",
+            "/plan", "/stats", "/profile", "/explore", "/settings", "/design",
+            "/quiz/create", "/quiz/join", "/quiz/lobby/{code}", "/quiz/play/{sessionId}",
+            "/quiz/results/{sessionId}"})
     public String spaFallback() {
         return "forward:/index.html";
     }

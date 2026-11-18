@@ -19,5 +19,10 @@ public record RegisterRequest(
         String nickname,
 
         @Pattern(regexp = "en|km", message = "Language must be en or km.")
-        String language) {
+        String language,
+
+        @Size(max = 128)
+        String inviteCode,
+
+        Boolean adultConfirmed) {
 }

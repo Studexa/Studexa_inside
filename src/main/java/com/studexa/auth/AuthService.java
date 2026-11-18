@@ -10,6 +10,7 @@ import java.text.Normalizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +43,9 @@ public class AuthService {
     private final JwtService jwtService;
     private final String frontendUrl;
     private final Clock clock;
+    private final boolean betaEnabled;
+    private final boolean betaRegistrationOpen;
+    private final JdbcTemplate jdbc;
 
     public AuthService(UserRepository userRepository,
             ProfileRepository profileRepository,
@@ -50,7 +54,10 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             @Value("${app.frontend-url}") String frontendUrl,
-            Clock clock) {
+            Clock clock,
+            @Value("${app.beta.enabled:false}") boolean betaEnabled,
+            @Value("${app.beta.registration-open:true}") boolean betaRegistrationOpen,
+            JdbcTemplate jdbc) {
         this.userRepository = userRepository;
         this.profileRepository = profileRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -59,11 +66,20 @@ public class AuthService {
         this.jwtService = jwtService;
         this.frontendUrl = frontendUrl;
         this.clock = clock;
+        this.betaEnabled = betaEnabled;
+        this.betaRegistrationOpen = betaRegistrationOpen;
+        this.jdbc = jdbc;
     }
 
     @Transactional
     public AuthResult register(RegisterRequest request) {
         String email = normalizeEmail(request.email());
+        if (betaEnabled) {
+            if (!betaRegistrationOpen) {
+                throw ApiException.serviceUnavailable("BETA_ENROLLMENT_CLOSED", "Beta enrollment is closed.");
+            }
+            redeemInvite(email, request.inviteCode(), request.adultConfirmed());
+        }
         if (userRepository.existsByEmail(email)) {
             throw ApiException.conflict("EMAIL_TAKEN", "An account with this email already exists.");
         }
@@ -76,6 +92,21 @@ public class AuthService {
         Profile profile = profileRepository.save(new Profile(user, nickname, language));
 
         return result(user, profile, jwtService.issueTokens(user, UUID.randomUUID()));
+    }
+
+    private void redeemInvite(String email, String code, Boolean adultConfirmed) {
+        if (!Boolean.TRUE.equals(adultConfirmed)) {
+            throw ApiException.badRequest("BETA_ADULT_REQUIRED", "Confirm that you are at least 18.");
+        }
+        Instant now = clock.instant();
+        if (!hasText(code) || jdbc.update("""
+                UPDATE beta_invites SET redeemed_at = ?
+                WHERE code_hash = ? AND email = ? AND expires_at > ?
+                  AND revoked_at IS NULL AND redeemed_at IS NULL
+                """, java.sql.Timestamp.from(now), TokenHasher.sha256(code.trim()),
+                email, java.sql.Timestamp.from(now)) != 1) {
+            throw ApiException.badRequest("BETA_INVALID_INVITE", "Use a valid invite code for this email address.");
+        }
     }
 
     @Transactional
@@ -148,6 +179,7 @@ public class AuthService {
      */
     @Transactional
     public void forgotPassword(String email) {
+        requirePasswordResetAvailable();
         userRepository.findByEmail(normalizeEmail(email))
                 .filter(user -> user.getPasswordHash() != null)
                 .ifPresent(user -> {
@@ -163,6 +195,7 @@ public class AuthService {
 
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
+        requirePasswordResetAvailable();
         PasswordResetToken token = passwordResetTokenRepository
                 .findByTokenHash(TokenHasher.sha256(request.token()))
                 .orElseThrow(AuthService::invalidToken);
@@ -175,6 +208,12 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         token.setUsed(true);
         refreshTokenRepository.revokeAllForUser(user.getId());
+    }
+
+    private void requirePasswordResetAvailable() {
+        if (betaEnabled) {
+            throw ApiException.notFound("Contact the beta organizer for help with your account.");
+        }
     }
 
     @Transactional
