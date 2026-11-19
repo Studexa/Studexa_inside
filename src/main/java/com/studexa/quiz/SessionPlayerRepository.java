@@ -14,13 +14,16 @@ public interface SessionPlayerRepository extends JpaRepository<SessionPlayer, UU
 
     List<SessionPlayer> findBySessionId(UUID sessionId);
 
-    List<SessionPlayer> findBySessionIdOrderByTotalScoreDesc(UUID sessionId);
+    List<SessionPlayer> findBySessionIdOrderByTotalScoreDescIdAsc(UUID sessionId);
 
     Optional<SessionPlayer> findBySessionIdAndUserId(UUID sessionId, UUID userId);
 
     Optional<SessionPlayer> findBySessionIdAndNickname(UUID sessionId, String nickname);
 
     boolean existsBySessionIdAndNickname(UUID sessionId, String nickname);
+
+    @Query("select p.sessionId from SessionPlayer p where p.id = :id and p.userId = :owner")
+    Optional<UUID> findOwnedSessionId(@Param("id") UUID id, @Param("owner") UUID owner);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from SessionPlayer p where p.id = :id")

@@ -97,8 +97,19 @@ public class QuizDto {
 
     public record RoomInfoResponse(
             SessionResponse session,
-            List<SessionPlayerResponse> players
+            List<SessionPlayerResponse> players,
+            String title,
+            int questionCount,
+            int timePerQuestion
     ) {}
+
+    public record LiveQuestion(UUID id, String text, String options, int index,
+            int timeLimitSeconds, long endsAt) {}
+
+    public record LiveState(String status, String roomCode, boolean host, UUID playerId, LiveQuestion question,
+            AnswerResponse answer, int answeredCount, int playerCount, int questionCount, long serverTime) {}
+
+    public record AdvanceRequest(UUID questionId) {}
 
     public record AnswerRequest(
             UUID sessionPlayerId,

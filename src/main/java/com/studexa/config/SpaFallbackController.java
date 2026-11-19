@@ -16,8 +16,8 @@ public class SpaFallbackController {
 
     @GetMapping({"/login", "/register", "/auth/callback", "/demo", "/onboarding",
             "/study", "/study/**", "/subjects", "/notes", "/notes/{noteId}",
-            "/plan", "/stats", "/profile", "/explore", "/settings", "/design",
-            "/quiz/create", "/quiz/join", "/quiz/lobby/{code}", "/quiz/play/{sessionId}",
+            "/plan", "/stats", "/profile", "/explore", "/explore/read/{id}", "/settings", "/design", "/library",
+            "/quiz", "/quiz/create", "/quiz/join", "/quiz/lobby/{code}", "/quiz/play/{sessionId}",
             "/quiz/results/{sessionId}"})
     public String spaFallback() {
         return "forward:/index.html";

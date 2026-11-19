@@ -60,9 +60,7 @@ public class SecurityConfig {
                 .logout(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> {
                     if (betaEnabled) {
-                        auth.requestMatchers("/quiz", "/quiz/**", "/api/v1/quizzes", "/api/v1/quizzes/**",
-                                "/api/v1/sessions", "/api/v1/sessions/**", "/api/v1/answers",
-                                "/api/v1/answers/**", "/oauth2/**", "/login/oauth2/**").denyAll();
+                        auth.requestMatchers("/oauth2/**", "/login/oauth2/**").denyAll();
                     }
                     auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // Public: health + auth (no session needed)

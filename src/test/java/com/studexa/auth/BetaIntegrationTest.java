@@ -3,6 +3,7 @@ package com.studexa.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -14,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -24,11 +26,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.jayway.jsonpath.JsonPath;
 import com.studexa.ai.GeminiClient;
+import com.studexa.library.WikisourceReadings;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -43,6 +47,7 @@ class BetaIntegrationTest {
     @Autowired private MockMvc mvc;
     @Autowired private JdbcTemplate jdbc;
     @MockitoBean private GeminiClient gemini;
+    @MockitoSpyBean private WikisourceReadings readings;
 
     @Test
     void registrationRequiresAnUnexpiredUnrevokedInviteForAnAdultWithTheMatchingEmail() throws Exception {
@@ -107,16 +112,103 @@ class BetaIntegrationTest {
     }
 
     @Test
-    void betaKeepsLiveFeaturesClosedAndServesNestedStudyRoutes() throws Exception {
+    void betaBuildsBookStudyPromptsFromTheApprovedPassage() throws Exception {
+        String auth = authHeader();
+        var edition = readings.list().getFirst();
+        String path = "/api/v1/library/readings/" + edition.id();
+        doReturn(new WikisourceReadings.Reading(edition, List.of(
+                new WikisourceReadings.Block(false, "Omitted 🧬 First paragraph."),
+                new WikisourceReadings.Block(false, "Second paragraph. Omitted ending."))))
+                .when(readings).get(edition.id());
+        String payload = """
+                {"revision":%d,"startBlock":0,"startOffset":11,"endBlock":1,"endOffset":17,
+                 "language":"en","action":"SUMMARIZE"}
+                """.formatted(edition.revision());
+        mvc.perform(get("/api/v1/library/readings")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/library/readings").header("Authorization", auth))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(9));
+        mvc.perform(get("/explore/read/" + edition.id())).andExpect(forwardedUrl("/index.html"));
+        send(path + "/ask", null, payload).andExpect(status().isUnauthorized());
+        send("/api/v1/library/readings/outside-catalog/ask", auth, payload).andExpect(status().isNotFound());
+        send(path + "/ask", auth, payload.replace("SUMMARIZE", "custom")).andExpect(status().isBadRequest());
+        send(path + "/ask", auth, payload.replace("11", "9")).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_READING_SELECTION"));
+        send(path + "/ask", auth, payload.replace(Long.toString(edition.revision()), "1"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("READING_CHANGED"));
+        verifyNoInteractions(gemini);
+
+        var sentPrompt = org.mockito.ArgumentCaptor.forClass(String.class);
+        when(gemini.complete(anyString(), anyString())).thenReturn("""
+                {"answer":"A summary.","references":[{"excerpt":"Second paragraph."}]}
+                """);
+        String withExtraFields = payload.replace("}", ",\"question\":\"private prompt\",\"sourceText\":\"private note\"}");
+        send(path + "/ask", auth, withExtraFields).andExpect(status().isOk())
+                .andExpect(jsonPath("$.references[0].excerpt").value("Second paragraph."));
+        verify(gemini).complete(anyString(), sentPrompt.capture());
+        assertThat(sentPrompt.getValue()).contains("Summarize the main ideas", "First paragraph.\n\nSecond paragraph.")
+                .doesNotContain("private prompt", "private note", "Omitted");
+    }
+
+    @Test
+    void betaRequiresSignInForLiveRoomApisAndServesRoomLinks() throws Exception {
         String auth = authHeader();
         send("/api/v1/auth/forgot-password", null, """
                 {"email":"student@example.test"}
                 """)
                 .andExpect(status().isNotFound());
-        mvc.perform(get("/api/v1/quizzes").header("Authorization", auth)).andExpect(status().isForbidden());
-        mvc.perform(get("/quiz/info").header("Authorization", auth)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/quizzes")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/quizzes").header("Authorization", auth)).andExpect(status().isOk());
+        mvc.perform(get("/quiz")).andExpect(forwardedUrl("/index.html"));
+        mvc.perform(get("/quiz/lobby/AA2345")).andExpect(forwardedUrl("/index.html"));
         mvc.perform(get("/study/decks/" + UUID.randomUUID())).andExpect(forwardedUrl("/index.html"));
         mvc.perform(get("/notes/" + UUID.randomUUID())).andExpect(forwardedUrl("/index.html"));
+    }
+
+    @Test
+    void liveRoomStateRequiresMembershipAndOnlyHostCanAdvance() throws Exception {
+        String host = authHeader();
+        String player = authHeader();
+        String outsider = authHeader();
+        String quizId = json(send("/api/v1/quizzes", host, "{\"title\":\"Live water quiz\"}")
+                .andExpect(status().isCreated()), "$.id");
+        String questionId = json(send("/api/v1/quizzes/" + quizId + "/questions", host, """
+                {"text":"What forms in the sky?","type":"MULTIPLE_CHOICE",
+                 "options":"[\\"Clouds\\",\\"Sand\\"]","correctAnswer":"Clouds"}
+                """).andExpect(status().isCreated()), "$.id");
+        var created = send("/api/v1/sessions", host, """
+                {"quizId":"%s","numQuestions":1}
+                """.formatted(quizId)).andExpect(status().isCreated());
+        String room = "/api/v1/sessions/" + json(created, "$.id");
+        String code = json(created, "$.roomCode");
+        String playerId = json(send(room + "/players", player, """
+                {"roomCode":"%s","nickname":"Player"}
+                """.formatted(code)).andExpect(status().isCreated()), "$.id");
+        send(room + "/start", player, "{}").andExpect(status().isNotFound());
+        send(room + "/start", host, "{}").andExpect(status().isOk());
+        mvc.perform(get(room + "/state").header("Authorization", outsider)).andExpect(status().isNotFound());
+        mvc.perform(get(room + "/leaderboard").header("Authorization", outsider)).andExpect(status().isNotFound());
+        send(room + "/players", outsider, """
+                {"roomCode":"%s","nickname":"Late player"}
+                """.formatted(code)).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("ROOM_CLOSED"));
+        var snapshot = mvc.perform(get(room + "/state").header("Authorization", player)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.question.id").value(questionId))
+                .andExpect(jsonPath("$.question.correctAnswer").doesNotExist())
+                .andExpect(jsonPath("$.answer").doesNotExist());
+        String progress = "{\"questionId\":\"" + questionId + "\"}";
+        send(room + "/advance", player, progress).andExpect(status().isNotFound());
+        send(room + "/advance", host, progress).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("QUESTION_IN_PROGRESS"));
+        send("/api/v1/answers", player, """
+                {"sessionPlayerId":"%s","questionId":"%s","selectedAnswer":"Clouds"}
+                """.formatted(playerId, questionId)).andExpect(status().isCreated());
+        mvc.perform(get(room + "/state").header("Authorization", player)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.question.endsAt").value(JsonPath.<Object>read(
+                        snapshot.andReturn().getResponse().getContentAsString(), "$.question.endsAt")))
+                .andExpect(jsonPath("$.answer.isCorrect").value(true));
+    }
+
+    private static String json(ResultActions result, String path) throws Exception {
+        return JsonPath.read(result.andReturn().getResponse().getContentAsString(), path);
     }
 
     @Test

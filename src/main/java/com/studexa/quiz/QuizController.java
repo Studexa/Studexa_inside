@@ -82,7 +82,7 @@ public class QuizController {
         UUID ownerId = CurrentUser.id(jwt);
         Quiz quiz = quizRepository.findByIdAndOwnerId(id, ownerId)
                 .orElseThrow(() -> ApiException.notFound("Quiz not found."));
-        List<QuizDto.QuestionResponse> questions = questionRepository.findByQuizIdOrderByCreatedAtAsc(id).stream()
+        List<QuizDto.QuestionResponse> questions = questionRepository.findByQuizIdOrderByCreatedAtAscIdAsc(id).stream()
                 .map(this::toResponse)
                 .toList();
         return new QuizWithQuestions(toResponse(quiz), questions);
