@@ -77,6 +77,10 @@ class BetaIntegrationTest {
         send("/api/v1/ai/generate", auth, """
                 {"task":"QUIZ","deckId":"00000000-0000-0000-0000-000000000001","sourceText":"private note"}
                 """).andExpect(status().isNotFound());
+        send("/api/v1/ai/generate", auth, """
+                {"task":"FLASHCARDS","basicOnly":true,"sourceText":"private attachment"}
+                """).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/ai/source-limit").header("Authorization", auth)).andExpect(status().isNotFound());
         send("/api/v1/ai/samples/tutor", auth, """
                 {"sampleId":"water-cycle-en","promptId":"unknown"}
                 """).andExpect(status().isBadRequest());

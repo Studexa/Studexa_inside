@@ -96,6 +96,19 @@ class DeckIntegrationTest {
         mvc.perform(get("/api/v1/decks").header(HttpHeaders.AUTHORIZATION, bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].dueCount").value(2));
+
+        mvc.perform(get("/api/v1/review/today").header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reviewedCards").value(1))
+                .andExpect(jsonPath("$.resetsAt").isString());
+
+        mvc.perform(post("/api/v1/review/undo").param("cardId", firstCardId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/v1/review/today").header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reviewedCards").value(0));
     }
 
     @Test

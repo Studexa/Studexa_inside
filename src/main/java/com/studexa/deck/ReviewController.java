@@ -5,7 +5,6 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,6 +14,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.studexa.common.CurrentUser;
+import com.studexa.deck.dto.DailyReviewProgress;
 import com.studexa.deck.dto.ReviewAnswerRequest;
 import com.studexa.deck.dto.ReviewAnswerResponse;
 import com.studexa.deck.dto.ReviewQueueResponse;
@@ -36,6 +36,11 @@ public class ReviewController {
     public ReviewQueueResponse queue(@AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) UUID deckId) {
         return reviewService.getQueue(CurrentUser.id(jwt), deckId);
+    }
+
+    @GetMapping("/today")
+    public DailyReviewProgress dailyReviewProgress(@AuthenticationPrincipal Jwt jwt) {
+        return reviewService.getDailyProgress(CurrentUser.id(jwt));
     }
 
     @PostMapping("/answer")

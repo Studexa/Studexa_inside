@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
@@ -88,6 +89,26 @@ class AiServiceTest {
         assertThat(response.items().getFirst().sourceExcerpt())
                 .isEqualTo("Plants use sunlight to make food.");
         assertThat(response.items().get(1).sourceExcerpt()).isNull();
+    }
+
+    @Test
+    void questionAndAnswerModeKeepsOnlyBasicCards() {
+        when(anthropicClient.complete(anyString(), anyString())).thenReturn("""
+                {"items":[
+                  {"type":"CLOZE","front":"Plants need {{c1::light}}.","back":"Light"},
+                  {"type":"BASIC","front":"What do plants use?","back":"Light","choices":["Light","Water"]}
+                ]}
+                """);
+
+        var result = service.generate(UUID.randomUUID(), new AiGenerateRequest(AiTask.FLASHCARDS, null,
+                "Plants use light.", "Biology notes", 5, "km", true));
+
+        assertThat(result.items()).singleElement().satisfies(card -> {
+            assertThat(card.type()).isEqualTo(CardType.BASIC);
+            assertThat(card.front()).isEqualTo("What do plants use?");
+            assertThat(card.choices()).isEmpty();
+        });
+        verify(anthropicClient).complete(anyString(), contains("with a standalone question"));
     }
 
     @Test

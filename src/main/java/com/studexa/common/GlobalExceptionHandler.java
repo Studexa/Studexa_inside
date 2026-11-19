@@ -14,6 +14,8 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 
 /**
  * Turns exceptions into RFC 7807 problem responses. Stack traces and internal
@@ -51,6 +53,18 @@ public class GlobalExceptionHandler {
         log.warn("Database constraint violation", ex);
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiProblem.of(HttpStatus.CONFLICT, "CONFLICT", "That change conflicts with existing data."));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ProblemDetail> handleOversizedUpload() {
+        return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE)
+                .body(ApiProblem.of(HttpStatus.CONTENT_TOO_LARGE, "FILE_TOO_LARGE", "Files must be 5 MB or smaller."));
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidUpload() {
+        return ResponseEntity.badRequest()
+                .body(ApiProblem.of(HttpStatus.BAD_REQUEST, "INVALID_FILE", "The file upload could not be read."));
     }
 
     @ExceptionHandler(Exception.class)

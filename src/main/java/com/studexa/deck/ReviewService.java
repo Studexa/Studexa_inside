@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.studexa.common.ApiException;
+import com.studexa.deck.dto.DailyReviewProgress;
 import com.studexa.deck.dto.ReviewAnswerRequest;
 import com.studexa.deck.dto.ReviewAnswerResponse;
 import com.studexa.deck.dto.ReviewQueueCard;
@@ -63,6 +64,17 @@ public class ReviewService {
         this.clock = clock;
         this.gameService = gameService;
         this.gameProperties = gameProperties;
+    }
+
+    @Transactional(readOnly = true)
+    public DailyReviewProgress getDailyProgress(UUID userId) {
+        ZoneId zone = reviewZone(userId);
+        LocalDate today = LocalDate.now(clock.withZone(zone));
+        Instant start = today.atStartOfDay(zone).toInstant();
+        Instant end = today.plusDays(1).atStartOfDay(zone).toInstant();
+        long reviewed = reviewLogRepository.countByUserIdAndReviewedAtGreaterThanEqualAndReviewedAtLessThan(
+                userId, start, end);
+        return new DailyReviewProgress(reviewed, end);
     }
 
     @Transactional(readOnly = true)
@@ -333,14 +345,18 @@ public class ReviewService {
     }
 
     private int countReviewsForCardToday(UUID userId, UUID cardId) {
-        ZoneId zoneId = profileRepository.findById(userId)
-                .map(p -> ZoneId.of(p.getTimezone()))
-                .orElse(ZoneId.systemDefault());
+        ZoneId zoneId = reviewZone(userId);
         LocalDate today = clock.instant().atZone(zoneId).toLocalDate();
         return reviewLogRepository.findByCardIdAndUserIdOrderByReviewedAtDesc(cardId, userId).stream()
                 .filter(log -> log.getReviewedAt() != null
                         && log.getReviewedAt().atZone(zoneId).toLocalDate().equals(today))
                 .mapToInt(log -> 1)
                 .sum();
+    }
+
+    private ZoneId reviewZone(UUID userId) {
+        return profileRepository.findById(userId)
+                .map(profile -> ZoneId.of(profile.getTimezone()))
+                .orElse(ZoneId.systemDefault());
     }
 }

@@ -19,6 +19,8 @@ public interface ReviewLogRepository extends JpaRepository<ReviewLog, UUID> {
 
     boolean existsByUserIdAndReviewedAtGreaterThanEqualAndReviewedAtLessThan(
             UUID userId, Instant startInclusive, Instant endExclusive);
+    long countByUserIdAndReviewedAtGreaterThanEqualAndReviewedAtLessThan(
+            UUID userId, Instant startInclusive, Instant endExclusive);
 
     @Query(value = "SELECT count(DISTINCT (reviewed_at AT TIME ZONE :zoneId)::date) "
             + "FROM review_logs WHERE user_id = :userId "

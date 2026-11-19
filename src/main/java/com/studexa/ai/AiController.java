@@ -55,6 +55,12 @@ public class AiController {
         return aiService.tutor(CurrentUser.id(jwt), request);
     }
 
+    @GetMapping("/source-limit")
+    public SourceLimit sourceLimit() {
+        requireOpenPrompts();
+        return new SourceLimit(Math.min(20_000, properties.maxSourceChars()));
+    }
+
     @GetMapping("/samples")
     public List<StudySample> samples() {
         return StudySample.CATALOG;
@@ -95,4 +101,6 @@ public class AiController {
 
     public record SampleTutorRequest(@NotBlank @Size(max = 64) String sampleId,
             @NotBlank @Size(max = 64) String promptId) {}
+
+    public record SourceLimit(int maxSourceChars) {}
 }
