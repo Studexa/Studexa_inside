@@ -19,6 +19,19 @@ public interface CardProgressRepository extends JpaRepository<CardProgress, UUID
     long countByUserIdAndIntervalDaysGreaterThanEqual(UUID userId, int intervalDays);
 
     @Query(value = """
+            SELECT p.*
+            FROM card_progress p
+            JOIN cards c ON c.id = p.card_id AND c.user_id = p.user_id
+            JOIN decks d ON d.id = c.deck_id AND d.user_id = p.user_id
+            LEFT JOIN subjects s ON s.id = d.subject_id AND s.user_id = p.user_id
+            WHERE p.user_id = :userId AND p.lapses > 0 AND NOT c.suspended
+              AND (d.subject_id IS NULL OR s.archived = false)
+            ORDER BY p.lapses DESC, p.last_reviewed_at DESC NULLS LAST, p.card_id
+            LIMIT 5
+            """, nativeQuery = true)
+    List<CardProgress> findWeakCards(@Param("userId") UUID userId);
+
+    @Query(value = """
             SELECT count(*)
             FROM card_progress p
             JOIN cards c ON c.id = p.card_id

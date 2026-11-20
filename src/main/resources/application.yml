@@ -6,6 +6,10 @@ spring:
   threads:
     virtual:
       enabled: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:${DB_PORT:5432}/studexa}
     username: ${DB_USER:studexa}

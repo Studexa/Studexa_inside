@@ -1,11 +1,13 @@
 package com.studexa.ai;
 
 import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
@@ -15,6 +17,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 import com.studexa.common.ApiException;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -33,15 +36,24 @@ public class GeminiClient implements AiClient {
     private final ObjectMapper objectMapper;
     private final RestClient restClient;
 
+    @Autowired
     public GeminiClient(AiProperties properties, ObjectMapper objectMapper) {
+        this(properties, objectMapper, gateway(properties.timeout()));
+    }
+
+    GeminiClient(AiProperties properties, ObjectMapper objectMapper, RestClient restClient) {
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.restClient = restClient;
+    }
+
+    private static RestClient gateway(Duration timeout) {
         HttpClient httpClient = HttpClient.newBuilder()
-                .connectTimeout(properties.timeout())
+                .connectTimeout(timeout)
                 .build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
-        requestFactory.setReadTimeout(properties.timeout());
-        this.restClient = RestClient.builder()
+        requestFactory.setReadTimeout(timeout);
+        return RestClient.builder()
                 .baseUrl("https://generativelanguage.googleapis.com/v1beta")
                 .requestFactory(requestFactory)
                 .build();
@@ -101,14 +113,22 @@ public class GeminiClient implements AiClient {
         } catch (ApiException ex) {
             throw ex;
         } catch (RestClientResponseException ex) {
-            log.warn("Gemini request failed with status {}", ex.getStatusCode().value());
-            if (ex.getStatusCode().value() == 429) {
+            int status = ex.getStatusCode().value();
+            log.warn("Gemini request failed with status {}", status);
+            if (status == 401 || status == 403) {
+                throw ApiException.serviceUnavailable("AI_PROVIDER_ACCESS_DENIED",
+                        "Gemini denied access. Ask the app administrator to check the API key and project access.");
+            }
+            if (status == 429) {
                 throw ApiException.tooManyRequests("AI_PROVIDER_LIMIT", "Gemini is busy. Please try again later.");
             }
             throw ApiException.badGateway("AI_ERROR", "The AI service could not complete that request. Please try again.");
         } catch (ResourceAccessException ex) {
             log.warn("Gemini request timed out or could not connect");
             throw ApiException.badGateway("AI_TIMEOUT", "The AI took too long to answer. Please try again.");
+        } catch (JacksonException ex) {
+            log.warn("Gemini returned a malformed response");
+            throw ApiException.badGateway("AI_INVALID_RESPONSE", "The AI response could not be validated. Please try again.");
         }
     }
 }

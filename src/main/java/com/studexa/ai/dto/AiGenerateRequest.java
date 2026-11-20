@@ -25,5 +25,12 @@ public record AiGenerateRequest(
         Integer count,
 
         @Pattern(regexp = "en|km", message = "Language must be en or km.")
-        String language) {
+        String language,
+
+        Boolean basicOnly) {
+
+    public AiGenerateRequest(AiTask task, UUID deckId, String sourceText, String sourceTitle, Integer count,
+            String language) {
+        this(task, deckId, sourceText, sourceTitle, count, language, null);
+    }
 }

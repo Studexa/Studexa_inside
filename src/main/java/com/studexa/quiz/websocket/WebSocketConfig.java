@@ -1,5 +1,8 @@
 package com.studexa.quiz.websocket;
 
+import java.util.Set;
+import java.util.UUID;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
@@ -19,6 +22,9 @@ import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBr
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
+import com.studexa.quiz.SessionPlayerRepository;
+import com.studexa.quiz.SessionRepository;
+
 /**
  * WebSocket/STOMP config for real-time quiz events.
  * - /app/*          -> client-to-server messages (@MessageMapping)
@@ -33,19 +39,28 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
+    private static final String ROOM_TOPIC = "/topic/room/";
+    private static final Set<String> COMMANDS = Set.of("/app/quiz.ready", "/app/quiz.start",
+            "/app/quiz.next", "/app/quiz.answer", "/app/quiz.end");
+
     private final JwtDecoder jwtDecoder;
     private final String allowedOrigin;
+    private final SessionRepository sessions;
+    private final SessionPlayerRepository players;
 
     public WebSocketConfig(JwtDecoder jwtDecoder,
-            @Value("${app.frontend-url:http://localhost:5173}") String allowedOrigin) {
+            @Value("${app.frontend-url:http://localhost:5173}") String allowedOrigin,
+            SessionRepository sessions, SessionPlayerRepository players) {
         this.jwtDecoder = jwtDecoder;
         this.allowedOrigin = allowedOrigin;
+        this.sessions = sessions;
+        this.players = players;
     }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/quiz").setAllowedOriginPatterns(allowedOrigin);
-        registry.addEndpoint("/quiz").setAllowedOriginPatterns(allowedOrigin).withSockJS();
+        registry.addEndpoint("/ws/quiz", "/quiz").setAllowedOriginPatterns(allowedOrigin);
+        registry.addEndpoint("/ws/quiz", "/quiz").setAllowedOriginPatterns(allowedOrigin).withSockJS();
     }
 
     @Override
@@ -61,19 +76,40 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             public Message<?> preSend(Message<?> message, MessageChannel channel) {
                 StompHeaderAccessor accessor =
                         MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
-                if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
+                if (accessor == null) return message;
+                StompCommand command = accessor.getCommand();
+                if (command == StompCommand.CONNECT || command == StompCommand.STOMP) {
                     String header = accessor.getFirstNativeHeader("Authorization");
-                    if (header != null && header.startsWith("Bearer ")) {
-                        try {
-                            Jwt jwt = jwtDecoder.decode(header.substring(7));
-                            accessor.setUser(new JwtAuthenticationToken(jwt));
-                        } catch (JwtException | IllegalArgumentException ex) {
-                            throw new MessagingException("Invalid WebSocket credentials.", ex);
-                        }
+                    if (header == null || !header.startsWith("Bearer ")) {
+                        throw new MessagingException("Authentication required.");
                     }
+                    try {
+                        Jwt jwt = jwtDecoder.decode(header.substring(7));
+                        accessor.setUser(new JwtAuthenticationToken(jwt));
+                    } catch (JwtException | IllegalArgumentException ex) {
+                        throw new MessagingException("Invalid WebSocket credentials.", ex);
+                    }
+                } else if (command == StompCommand.SUBSCRIBE) {
+                    requireRoomMember(accessor);
+                } else if (command == StompCommand.SEND && (accessor.getUser() == null
+                        || accessor.getDestination() == null || !COMMANDS.contains(accessor.getDestination()))) {
+                    throw new MessagingException("Unsupported room command.");
                 }
                 return message;
             }
         });
+    }
+
+    private void requireRoomMember(StompHeaderAccessor accessor) {
+        String destination = accessor.getDestination();
+        if (accessor.getUser() == null || destination == null || !destination.startsWith(ROOM_TOPIC)) {
+            throw new MessagingException("Room subscription denied.");
+        }
+        String code = destination.substring(ROOM_TOPIC.length());
+        if (!code.matches("[A-Z0-9]{6}")) throw new MessagingException("Room subscription denied.");
+        UUID user = UUID.fromString(accessor.getUser().getName());
+        if (sessions.findByRoomCode(code).flatMap(room -> players.findBySessionIdAndUserId(room.getId(), user)).isEmpty()) {
+            throw new MessagingException("Room subscription denied.");
+        }
     }
 }

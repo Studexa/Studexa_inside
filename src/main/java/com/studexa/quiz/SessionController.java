@@ -18,11 +18,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.transaction.annotation.Transactional;
 import com.studexa.common.ApiException;
 import com.studexa.common.CurrentUser;
 import com.studexa.quiz.dto.QuizDto;
 import com.studexa.quiz.dto.QuizDto.CreateSessionRequest;
 import com.studexa.quiz.dto.QuizDto.JoinRoomRequest;
+import com.studexa.user.ProfileRepository;
 
 import jakarta.validation.Valid;
 
@@ -42,21 +45,28 @@ public class SessionController {
     private final QuizRepository quizRepository;
     private final QuestionRepository questionRepository;
     private final ObjectMapper objectMapper;
+    private final LiveQuizService liveQuiz;
+    private final ProfileRepository profiles;
+    private final ApplicationEventPublisher events;
 
     public SessionController(SessionRepository sessionRepository,
             SessionPlayerRepository playerRepository,
             QuizRepository quizRepository,
             QuestionRepository questionRepository,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper, LiveQuizService liveQuiz, ProfileRepository profiles, ApplicationEventPublisher events) {
         this.sessionRepository = sessionRepository;
         this.playerRepository = playerRepository;
         this.quizRepository = quizRepository;
         this.questionRepository = questionRepository;
         this.objectMapper = objectMapper;
+        this.liveQuiz = liveQuiz;
+        this.profiles = profiles;
+        this.events = events;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
     public QuizDto.SessionResponse createSession(@AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody CreateSessionRequest request) {
         UUID hostId = CurrentUser.id(jwt);
@@ -73,8 +83,8 @@ public class SessionController {
         session = sessionRepository.save(session);
 
         // Host auto-joins as a player so the lobby always has at least one member.
-        SessionPlayer hostPlayer = new SessionPlayer(
-                session.getId(), hostId, "Host", null, null, true);
+        String nickname = profiles.findById(hostId).map(profile -> profile.getNickname()).orElse("Host");
+        SessionPlayer hostPlayer = new SessionPlayer(session.getId(), hostId, nickname, null, null, true);
         hostPlayer.setIsReady(true);
         playerRepository.save(hostPlayer);
 
@@ -88,33 +98,33 @@ public class SessionController {
         List<QuizDto.SessionPlayerResponse> players = playerRepository.findBySessionId(session.getId()).stream()
                 .map(this::toResponse)
                 .toList();
-        return new QuizDto.RoomInfoResponse(toResponse(session), players);
+        String title = quizRepository.findById(session.getQuizId()).orElseThrow(() -> ApiException.notFound("Quiz not found.")).getTitle();
+        int count = liveQuiz.questionCount(session, questionRepository.countByQuizId(session.getQuizId()));
+        return new QuizDto.RoomInfoResponse(toResponse(session), players, title, count, liveQuiz.roomTime(session));
     }
 
     @PostMapping("/{id}/start")
     public QuizDto.SessionResponse startSession(@PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
-        UUID userId = CurrentUser.id(jwt);
-        Session session = requireHost(id, userId);
-        if (session.getStatus() == Session.Status.ENDED) {
-            throw ApiException.conflict("SESSION_ENDED", "This room has already finished.");
-        }
-        if (questionRepository.findByQuizIdOrderByCreatedAtAsc(session.getQuizId()).isEmpty()) {
-            throw ApiException.badRequest("QUIZ_HAS_NO_QUESTIONS", "Add at least one question before starting this room.");
-        }
-        if (session.getStatus() == Session.Status.WAITING) {
-            session.setStatus(Session.Status.ACTIVE);
-            session.setStartedAt(java.time.Instant.now());
-        }
-        session = sessionRepository.save(session);
-        return toResponse(session);
+        return toResponse(liveQuiz.start(id, CurrentUser.id(jwt)));
+    }
+
+    @GetMapping("/{id}/state")
+    public QuizDto.LiveState getState(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return liveQuiz.state(id, CurrentUser.id(jwt));
+    }
+
+    @PostMapping("/{id}/advance")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void advance(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt,
+            @RequestBody QuizDto.AdvanceRequest request) {
+        liveQuiz.advance(id, CurrentUser.id(jwt), request.questionId());
     }
 
     @GetMapping("/{id}/players")
-    public List<QuizDto.SessionPlayerResponse> getPlayers(@PathVariable UUID id) {
-        sessionRepository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Session not found."));
-        return playerRepository.findBySessionIdOrderByTotalScoreDesc(id).stream()
+    public List<QuizDto.SessionPlayerResponse> getPlayers(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        liveQuiz.requireMember(id, CurrentUser.id(jwt));
+        return playerRepository.findBySessionIdOrderByTotalScoreDescIdAsc(id).stream()
                 .map(this::toResponse)
                 .toList();
     }
@@ -126,12 +136,16 @@ public class SessionController {
      */
     @PostMapping("/{id}/players")
     @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
     public QuizDto.SessionPlayerResponse joinSession(@PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody JoinRoomRequest request) {
         UUID userId = CurrentUser.id(jwt);
-        Session session = sessionRepository.findById(id)
+        Session session = sessionRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> ApiException.notFound("Room not found."));
+        if (!session.getRoomCode().equalsIgnoreCase(request.roomCode() == null ? "" : request.roomCode().trim())) {
+            throw ApiException.notFound("Room not found.");
+        }
 
         SessionPlayer existing = playerRepository.findBySessionIdAndUserId(id, userId).orElse(null);
         if (existing != null) {
@@ -156,27 +170,19 @@ public class SessionController {
         SessionPlayer player = new SessionPlayer(
                 id, userId, nickname, null, null, false);
         player = playerRepository.save(player);
+        events.publishEvent(new LiveQuizService.RoomChanged(session.getRoomCode()));
         return toResponse(player);
     }
 
     @GetMapping("/{id}/leaderboard")
-    public List<QuizDto.LeaderboardEntry> getLeaderboard(@PathVariable UUID id) {
+    public List<QuizDto.LeaderboardEntry> getLeaderboard(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        liveQuiz.requireMember(id, CurrentUser.id(jwt));
         sessionRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Session not found."));
-        return playerRepository.findBySessionIdOrderByTotalScoreDesc(id).stream()
+        return playerRepository.findBySessionIdOrderByTotalScoreDescIdAsc(id).stream()
                 .map(p -> new QuizDto.LeaderboardEntry(
                         p.getNickname(), p.getTotalScore(), p.getFinalRank(), p.getIsHost()))
                 .toList();
-    }
-
-    private Session requireHost(UUID sessionId, UUID userId) {
-        Session session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> ApiException.notFound("Session not found."));
-        if (!session.getHostId().equals(userId)) {
-            // 404 so room ids cannot be probed by non-hosts.
-            throw ApiException.notFound("Session not found.");
-        }
-        return session;
     }
 
     private String nextRoomCode() {

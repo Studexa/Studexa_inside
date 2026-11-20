@@ -9,5 +9,7 @@ public interface QuestionRepository extends JpaRepository<Question, UUID> {
 
     List<Question> findByQuizId(UUID quizId);
 
-    List<Question> findByQuizIdOrderByCreatedAtAsc(UUID quizId);
+    List<Question> findByQuizIdOrderByCreatedAtAscIdAsc(UUID quizId);
+
+    int countByQuizId(UUID quizId);
 }

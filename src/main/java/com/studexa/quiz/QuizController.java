@@ -82,7 +82,7 @@ public class QuizController {
         UUID ownerId = CurrentUser.id(jwt);
         Quiz quiz = quizRepository.findByIdAndOwnerId(id, ownerId)
                 .orElseThrow(() -> ApiException.notFound("Quiz not found."));
-        List<QuizDto.QuestionResponse> questions = questionRepository.findByQuizIdOrderByCreatedAtAsc(id).stream()
+        List<QuizDto.QuestionResponse> questions = questionRepository.findByQuizIdOrderByCreatedAtAscIdAsc(id).stream()
                 .map(this::toResponse)
                 .toList();
         return new QuizWithQuestions(toResponse(quiz), questions);
@@ -96,6 +96,9 @@ public class QuizController {
         UUID ownerId = CurrentUser.id(jwt);
         Quiz quiz = quizRepository.findByIdAndOwnerId(id, ownerId)
                 .orElseThrow(() -> ApiException.notFound("Quiz not found."));
+        if (quizRepository.isSlideDeckQuiz(quiz.getId())) {
+            throw ApiException.conflict("SLIDE_QUIZ_READ_ONLY", "The questions for a saved slide deck are fixed.");
+        }
         if (request.text() == null || request.text().isBlank()) {
             throw ApiException.badRequest("INVALID_QUESTION", "Question text is required.");
         }

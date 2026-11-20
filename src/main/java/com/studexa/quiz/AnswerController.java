@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.time.Instant;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,7 +39,6 @@ import jakarta.validation.Valid;
 public class AnswerController {
 
     private static final int BASE_SCORE = 1000;
-    private static final int DEFAULT_TIME_LIMIT_SECONDS = 30;
     private static final com.fasterxml.jackson.databind.ObjectMapper JSON =
             new com.fasterxml.jackson.databind.ObjectMapper();
 
@@ -46,15 +46,17 @@ public class AnswerController {
     private final SessionPlayerRepository playerRepository;
     private final QuestionRepository questionRepository;
     private final SessionRepository sessionRepository;
+    private final ApplicationEventPublisher events;
 
     public AnswerController(AnswerRepository answerRepository,
             SessionPlayerRepository playerRepository,
             QuestionRepository questionRepository,
-            SessionRepository sessionRepository) {
+            SessionRepository sessionRepository, ApplicationEventPublisher events) {
         this.answerRepository = answerRepository;
         this.playerRepository = playerRepository;
         this.questionRepository = questionRepository;
         this.sessionRepository = sessionRepository;
+        this.events = events;
     }
 
     @PostMapping
@@ -71,14 +73,15 @@ public class AnswerController {
             throw ApiException.badRequest("INVALID_ANSWER", "Select an answer first.");
         }
 
-        requireOwnedPlayer(userId, request.sessionPlayerId());
+        UUID sessionId = playerRepository.findOwnedSessionId(request.sessionPlayerId(), userId)
+                .orElseThrow(() -> ApiException.notFound("Player not found."));
+        Session session = sessionRepository.findByIdForUpdate(sessionId)
+                .orElseThrow(() -> ApiException.notFound("Session not found."));
         SessionPlayer player = playerRepository.findByIdForUpdate(request.sessionPlayerId())
                 .orElseThrow(() -> ApiException.notFound("Player not found."));
         Question question = questionRepository.findById(request.questionId())
                 .orElseThrow(() -> ApiException.notFound("Question not found."));
 
-        Session session = sessionRepository.findByIdForUpdate(player.getSessionId())
-                .orElseThrow(() -> ApiException.notFound("Session not found."));
         if (!question.getQuizId().equals(session.getQuizId())) {
             throw ApiException.notFound("Question not found.");
         }
@@ -102,7 +105,7 @@ public class AnswerController {
             throw ApiException.badRequest("INVALID_ANSWER", "Choose one of the available options.");
         }
 
-        int timeLimitMs = timeLimitMs(question);
+        int timeLimitMs = LiveQuizService.timeLimit(question) * 1000;
         long elapsedMs = Math.max(0, Duration.between(session.getCurrentQuestionStartedAt(), Instant.now()).toMillis());
         if (elapsedMs > timeLimitMs) {
             throw ApiException.conflict("ANSWER_TIME_EXPIRED", "The time for this question has expired.");
@@ -117,6 +120,7 @@ public class AnswerController {
 
         player.setTotalScore(player.getTotalScore() + score);
         playerRepository.save(player);
+        events.publishEvent(new LiveQuizService.RoomChanged(session.getRoomCode()));
 
         return new QuizDto.AnswerResponse(
                 answer.getId(), isCorrect, score,
@@ -146,12 +150,6 @@ public class AnswerController {
             throw ApiException.notFound("Player not found.");
         }
         return player;
-    }
-
-    private static int timeLimitMs(Question question) {
-        Integer seconds = question.getTimeLimitSeconds();
-        int safe = seconds == null ? DEFAULT_TIME_LIMIT_SECONDS : Math.max(1, Math.min(600, seconds));
-        return safe * 1000;
     }
 
     private static boolean isValidOption(String options, String selected) {

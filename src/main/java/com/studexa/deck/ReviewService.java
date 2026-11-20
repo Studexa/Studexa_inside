@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.studexa.common.ApiException;
+import com.studexa.deck.dto.DailyReviewProgress;
 import com.studexa.deck.dto.ReviewAnswerRequest;
 import com.studexa.deck.dto.ReviewAnswerResponse;
 import com.studexa.deck.dto.ReviewQueueCard;
@@ -63,6 +64,17 @@ public class ReviewService {
         this.clock = clock;
         this.gameService = gameService;
         this.gameProperties = gameProperties;
+    }
+
+    @Transactional(readOnly = true)
+    public DailyReviewProgress getDailyProgress(UUID userId) {
+        ZoneId zone = reviewZone(userId);
+        LocalDate today = LocalDate.now(clock.withZone(zone));
+        Instant start = today.atStartOfDay(zone).toInstant();
+        Instant end = today.plusDays(1).atStartOfDay(zone).toInstant();
+        long reviewed = reviewLogRepository.countByUserIdAndReviewedAtGreaterThanEqualAndReviewedAtLessThan(
+                userId, start, end);
+        return new DailyReviewProgress(reviewed, end);
     }
 
     @Transactional(readOnly = true)
@@ -128,7 +140,8 @@ public class ReviewService {
             if (deck.getSubjectId() != null && archivedSubjectIds.contains(deck.getSubjectId())) {
                 continue;
             }
-            result.add(toQueueCard(card, p, deck, subjectNames.get(deck.getSubjectId()), qc.state()));
+            String subjectName = deck.getSubjectId() == null ? null : subjectNames.get(deck.getSubjectId());
+            result.add(toQueueCard(card, deck, subjectName, qc.state()));
         }
 
         int remainingNew = countNew(cards, progress) - countNewInResult(result);
@@ -139,6 +152,30 @@ public class ReviewService {
                 Math.max(0, remainingNew),
                 Math.max(0, remainingReview),
                 now);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReviewQueueCard> getWeakCards(UUID userId) {
+        List<CardProgress> progress = progressRepository.findWeakCards(userId);
+        if (progress.isEmpty()) {
+            return List.of();
+        }
+
+        Map<UUID, Card> cards = cardRepository.findAllById(progress.stream().map(CardProgress::getCardId).toList())
+                .stream().collect(Collectors.toMap(Card::getId, card -> card));
+        Map<UUID, Deck> decks = deckService.findByIds(userId, cards.values().stream()
+                .map(Card::getDeckId).distinct().toList());
+        Map<UUID, String> subjects = subjectNames(userId, new ArrayList<>(decks.values()));
+        List<ReviewQueueCard> result = new ArrayList<>();
+        for (CardProgress entry : progress) {
+            Card card = cards.get(entry.getCardId());
+            Deck deck = card == null ? null : decks.get(card.getDeckId());
+            if (deck != null) {
+                String subjectName = deck.getSubjectId() == null ? null : subjects.get(deck.getSubjectId());
+                result.add(toQueueCard(card, deck, subjectName, toCardState(entry)));
+            }
+        }
+        return result;
     }
 
     @Transactional
@@ -275,7 +312,7 @@ public class ReviewService {
         return cards.stream().filter(c -> c.getId().equals(cardId)).findFirst().orElse(null);
     }
 
-    private ReviewQueueCard toQueueCard(Card card, CardProgress progress, Deck deck, String subjectName,
+    private ReviewQueueCard toQueueCard(Card card, Deck deck, String subjectName,
             CardState state) {
         Instant now = clock.instant();
         return new ReviewQueueCard(
@@ -333,14 +370,18 @@ public class ReviewService {
     }
 
     private int countReviewsForCardToday(UUID userId, UUID cardId) {
-        ZoneId zoneId = profileRepository.findById(userId)
-                .map(p -> ZoneId.of(p.getTimezone()))
-                .orElse(ZoneId.systemDefault());
+        ZoneId zoneId = reviewZone(userId);
         LocalDate today = clock.instant().atZone(zoneId).toLocalDate();
         return reviewLogRepository.findByCardIdAndUserIdOrderByReviewedAtDesc(cardId, userId).stream()
                 .filter(log -> log.getReviewedAt() != null
                         && log.getReviewedAt().atZone(zoneId).toLocalDate().equals(today))
                 .mapToInt(log -> 1)
                 .sum();
+    }
+
+    private ZoneId reviewZone(UUID userId) {
+        return profileRepository.findById(userId)
+                .map(profile -> ZoneId.of(profile.getTimezone()))
+                .orElse(ZoneId.systemDefault());
     }
 }
