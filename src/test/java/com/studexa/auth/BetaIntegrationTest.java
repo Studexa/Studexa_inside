@@ -2,12 +2,14 @@ package com.studexa.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -22,7 +24,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -109,6 +113,57 @@ class BetaIntegrationTest {
                 {"sampleId":"water-cycle-km","task":"QUIZ","count":1}
                 """).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].choices.length()").value(3));
         verify(gemini).complete(anyString(), contains("វដ្តទឹក"));
+    }
+
+    @Test
+    void slideGenerationInBetaOnlyUsesTrustedSampleText() throws Exception {
+        String auth = authHeader();
+        send("/api/v1/ai/slides/generate", auth, """
+                {"mode":"PROMPT","text":"private phrase","language":"en"}
+                """).andExpect(status().isNotFound());
+        send("/api/v1/ai/slides/generate", auth, """
+                {"mode":"SOURCE","text":"private phrase","language":"en"}
+                """).andExpect(status().isNotFound());
+        mvc.perform(multipart("/api/v1/ai/slides/extract")
+                .file(new MockMultipartFile("file", "private.txt", "text/plain", new byte[]{65}))
+                .header("Authorization", auth)).andExpect(status().isNotFound());
+        send("/api/v1/ai/samples/slides", auth, "{\"sampleId\":\"missing\"}").andExpect(status().isNotFound());
+        verifyNoInteractions(gemini);
+        String samples = mvc.perform(get("/api/v1/ai/samples").header("Authorization", auth))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String approvedText = JsonPath.read(samples, "$[1].text");
+        when(gemini.complete(anyString(), anyString())).thenReturn(new ClassPathResource("slides-draft.json")
+                .getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+        send("/api/v1/ai/samples/slides", auth, """
+                {"sampleId":"water-cycle-km","text":"private phrase","language":"en"}
+                """).andExpect(status().isOk()).andExpect(jsonPath("$.content.slides.length()").value(5));
+        verify(gemini).complete(anyString(), argThat(prompt -> prompt.contains("Khmer")
+                && prompt.endsWith("Source material:\n" + approvedText) && !prompt.contains("private phrase")));
+    }
+
+    @Test
+    void betaFollowUpsResolveOnlyQuestionsFromTheSelectedSample() throws Exception {
+        String auth = authHeader();
+        String base = """
+                {"sampleId":"water-cycle-km","promptId":"compare","previousPromptIds":%s,
+                 "history":[{"question":"private prompt","answer":"private answer"}]}
+                """;
+        send("/api/v1/ai/samples/tutor", auth, base.formatted("[\"outside-the-catalog\"]"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("AI_UNKNOWN_PROMPT"));
+        send("/api/v1/ai/samples/tutor", auth, base.formatted("[\"explain\",\"explain\",\"explain\",\"explain\"]"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(gemini);
+
+        when(gemini.complete(anyString(), anyString())).thenReturn("""
+                {"answer":"ចម្លើយ","references":[]}
+                """);
+        send("/api/v1/ai/samples/tutor", auth, base.formatted("[\"explain\"]"))
+                .andExpect(status().isOk());
+        var prompt = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(gemini).complete(anyString(), prompt.capture());
+        assertThat(prompt.getValue()).contains("PREVIOUS SAMPLE QUESTIONS (context only):",
+                "សូមពន្យល់ពីរបៀបដែលពពកកើតឡើង។")
+                .doesNotContain("Explain how clouds form.", "private prompt", "private answer");
     }
 
     @Test
@@ -209,6 +264,39 @@ class BetaIntegrationTest {
 
     private static String json(ResultActions result, String path) throws Exception {
         return JsonPath.read(result.andReturn().getResponse().getContentAsString(), path);
+    }
+
+    @Test
+    void replayingAReviewQuestEventCreditsProgressAndRewardOnce() throws Exception {
+        String auth = authHeader();
+        var today = get("/api/v1/quests/today").header("Authorization", auth);
+        var gameState = get("/api/v1/game/state").header("Authorization", auth);
+        String before = mvc.perform(gameState).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        int coins = JsonPath.<Integer>read(before, "$.coins");
+        int xp = JsonPath.<Integer>read(before, "$.xpTotal");
+        mvc.perform(today).andExpect(status().isOk());
+
+        String event = """
+                {"code":"warmup","source":"review_card","referenceId":"%s"}
+                """;
+        String first = event.formatted(UUID.randomUUID());
+        send("/api/v1/quests/progress", auth, first).andExpect(status().isNoContent());
+        send("/api/v1/quests/progress", auth, first).andExpect(status().isNoContent());
+        mvc.perform(today).andExpect(jsonPath("$[?(@.code == 'warmup')].progress", org.hamcrest.Matchers.contains(1)));
+
+        for (int i = 0; i < 8; i++) {
+            send("/api/v1/quests/progress", auth, event.formatted(UUID.randomUUID())).andExpect(status().isNoContent());
+        }
+        String last = event.formatted(UUID.randomUUID());
+        send("/api/v1/quests/progress", auth, last).andExpect(status().isNoContent());
+        String rewarded = mvc.perform(gameState).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        int rewardedCoins = JsonPath.<Integer>read(rewarded, "$.coins");
+        assertThat(rewardedCoins).isGreaterThanOrEqualTo(coins + 5);
+        send("/api/v1/quests/progress", auth, last).andExpect(status().isNoContent());
+        mvc.perform(today).andExpect(jsonPath("$[?(@.code == 'warmup')].progress", org.hamcrest.Matchers.contains(10)))
+                .andExpect(jsonPath("$[?(@.code == 'warmup')].completed", org.hamcrest.Matchers.contains(true)));
+        mvc.perform(gameState).andExpect(jsonPath("$.coins").value(rewardedCoins))
+                .andExpect(jsonPath("$.xpTotal").value(xp + 15));
     }
 
     @Test

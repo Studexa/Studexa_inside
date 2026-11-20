@@ -14,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -38,6 +39,9 @@ class DeckIntegrationTest {
 
     @Autowired
     private MockMvc mvc;
+
+    @Autowired
+    private JdbcTemplate jdbc;
 
     @Test
     void deckCardsDueAndReviewFlow() throws Exception {
@@ -131,6 +135,68 @@ class DeckIntegrationTest {
                 .content("{\"cardId\":\"" + cardId + "\",\"rating\":\"EASY\",\"msTaken\":1000}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+    }
+
+    @Test
+    void weakPracticeCardsIncludeFutureReviewsAndExcludeIneligibleCards() throws Exception {
+        String token = registerAndGetToken();
+        String otherToken = registerAndGetToken();
+        String deck = createDeck(token);
+        String otherDeck = createDeck(otherToken);
+        String mostLapses = practiceCard(token, deck, 5, 5);
+        String mostRecent = practiceCard(token, deck, 4, 1);
+        String tiedA = practiceCard(token, deck, 4, 2);
+        String tiedB = practiceCard(token, deck, 4, 2);
+        String fifth = practiceCard(token, deck, 3, 1);
+        practiceCard(token, deck, 2, 1);
+        practiceCard(token, deck, 0, 1);
+        String suspended = practiceCard(token, deck, 9, 1);
+        jdbc.update("UPDATE cards SET suspended = true WHERE id = ?", UUID.fromString(suspended));
+        String archivedDeck = createDeck(token);
+        practiceCard(token, archivedDeck, 8, 1);
+        UUID subject = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO subjects (id, user_id, name, archived)
+                SELECT ?, user_id, 'Archived', true FROM decks WHERE id = ?
+                """, subject, UUID.fromString(archivedDeck));
+        jdbc.update("UPDATE decks SET subject_id = ? WHERE id = ?", subject, UUID.fromString(archivedDeck));
+        String otherCard = practiceCard(otherToken, otherDeck, 7, 1);
+        var tied = java.util.stream.Stream.of(tiedA, tiedB).sorted().toList();
+
+        mvc.perform(get("/api/v1/review/weak-cards").header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(5))
+                .andExpect(jsonPath("$[0].id").value(mostLapses))
+                .andExpect(jsonPath("$[0].due").value(false))
+                .andExpect(jsonPath("$[1].id").value(mostRecent))
+                .andExpect(jsonPath("$[2].id").value(tied.get(0)))
+                .andExpect(jsonPath("$[3].id").value(tied.get(1)))
+                .andExpect(jsonPath("$[4].id").value(fifth));
+        mvc.perform(get("/api/v1/review/weak-cards").header(HttpHeaders.AUTHORIZATION, bearer(otherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(otherCard));
+        mvc.perform(get("/api/v1/review/weak-cards"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private String practiceCard(String token, String deck, int lapses, int daysSinceReview) throws Exception {
+        MvcResult created = mvc.perform(post("/api/v1/decks/{id}/cards", deck)
+                .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"type":"BASIC","front":"Front","back":"Back"}
+                        """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String id = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+        jdbc.update("""
+                UPDATE card_progress
+                SET lapses = ?, state = 'REVIEW', due_at = now() + interval '3 days',
+                    last_reviewed_at = date_trunc('day', now()) - (? * interval '1 day')
+                WHERE card_id = ?
+                """, lapses, daysSinceReview, UUID.fromString(id));
+        return id;
     }
 
     @Test

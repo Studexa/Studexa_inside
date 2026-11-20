@@ -1,0 +1,16 @@
+{
+  "title": "Water cycle slides",
+  "slides": [
+    { "title": "Water in motion", "bullets": ["Water moves between Earth's surface and the air.", "Sunlight provides energy for this cycle."] },
+    { "title": "Evaporation", "bullets": ["Liquid water becomes water vapor.", "Warmer water tends to evaporate faster."] },
+    { "title": "Condensation", "bullets": ["Water vapor cools and forms tiny droplets.", "Collections of droplets can make clouds."] },
+    { "title": "Precipitation", "bullets": ["Water falls from clouds as rain or snow.", "Gravity pulls the falling water downward."] },
+    { "title": "Collection", "bullets": ["Water collects in rivers, lakes, and oceans.", "Some of the water soaks into the ground."] }
+  ],
+  "questions": [
+    { "question": "What provides energy for the water cycle?", "choices": ["Sunlight", "Sand", "Salt", "Stone"], "correctIndex": 0, "explanation": "Sunlight provides energy that helps water evaporate." },
+    { "question": "What is liquid water becoming vapor called?", "choices": ["Collection", "Evaporation", "Freezing", "Precipitation"], "correctIndex": 1, "explanation": "Evaporation changes liquid water into water vapor." },
+    { "question": "What can droplets form when they gather?", "choices": ["Pebbles", "Soil", "Clouds", "Salt"], "correctIndex": 2, "explanation": "Tiny droplets gather to form clouds." },
+    { "question": "Where can water collect?", "choices": ["Stars", "Lava", "Lightning", "Rivers"], "correctIndex": 3, "explanation": "Rivers are one place water can collect." }
+  ]
+}

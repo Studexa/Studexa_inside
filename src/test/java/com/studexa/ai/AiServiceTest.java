@@ -3,6 +3,7 @@ package com.studexa.ai;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -155,6 +156,21 @@ class AiServiceTest {
     }
 
     @Test
+    void tutorSuppliesPriorTurnsAsContextAndChecksQuotesAgainstTheCurrentSource() {
+        when(anthropicClient.complete(anyString(), anyString())).thenReturn("""
+                {"answer":"It uses light.","references":[{"excerpt":"Text from the earlier answer."}]}
+                """);
+        var prompt = org.mockito.ArgumentCaptor.forClass(String.class);
+        var response = service.tutor(UUID.randomUUID(), new AiTutorRequest("Why does it do that?",
+                "Plants use light.", "Notes",
+                List.of(new AiTutorRequest.Turn("What happens first?", "Text from the earlier answer."))));
+        verify(anthropicClient).complete(anyString(), prompt.capture());
+        assertThat(prompt.getValue()).contains("PREVIOUS TURNS (context only):", "Why does it do that?",
+                "\"question\":\"What happens first?\"", "\"answer\":\"Text from the earlier answer.\"");
+        assertThat(response.references()).isEmpty();
+    }
+
+    @Test
     void rejectsEmptyGeneratedCardsAndRefundsQuota() {
         when(anthropicClient.complete(anyString(), anyString())).thenReturn(
                 "{\"items\":[{\"type\":\"BASIC\",\"front\":\"   \",\"back\":\"\"}]}");
@@ -173,6 +189,19 @@ class AiServiceTest {
         assertThatThrownBy(() -> service.tutor(userId, new AiTutorRequest("Explain", null, null)))
                 .isInstanceOf(ApiException.class);
         verify(usageRepository).decrementUsage(userId, LocalDate.of(2026, 11, 17));
+    }
+
+    @Test
+    void refundsQuotaWhenProviderDeniesTutoringAndGeneration() {
+        when(anthropicClient.complete(anyString(), anyString())).thenThrow(
+                ApiException.serviceUnavailable("AI_PROVIDER_ACCESS_DENIED", "Provider rejected the request."));
+        UUID userId = UUID.randomUUID();
+        assertThatThrownBy(() -> service.tutor(userId, new AiTutorRequest("Explain", null, null)))
+                .isInstanceOfSatisfying(ApiException.class, error -> assertThat(error.getCode()).isEqualTo("AI_PROVIDER_ACCESS_DENIED"));
+        assertThatThrownBy(() -> service.generate(userId,
+                new AiGenerateRequest(AiTask.FLASHCARDS, null, "Study notes", "Notes", 1, "en")))
+                .isInstanceOfSatisfying(ApiException.class, error -> assertThat(error.getCode()).isEqualTo("AI_PROVIDER_ACCESS_DENIED"));
+        verify(usageRepository, times(2)).decrementUsage(userId, LocalDate.of(2026, 11, 17));
     }
 
     @Test

@@ -17,7 +17,7 @@ import org.apache.poi.xwpf.usermodel.XWPFDocument;
 
 import com.studexa.common.ApiException;
 
-final class NoteFileExtractor {
+public final class NoteFileExtractor {
 
     private static final int MAX_TEXT = 200_000;
     private static final int MAX_PDF_PAGES = 200;
@@ -27,10 +27,11 @@ final class NoteFileExtractor {
 
     private NoteFileExtractor() {}
 
-    record ExtractedText(String text, boolean truncated) {}
+    public record ExtractedText(String text, boolean truncated) {}
 
-    static ExtractedText extract(String filename, byte[] bytes) {
-        String extension = filename.substring(filename.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT);
+    public static ExtractedText extract(String filename, byte[] bytes) {
+        int dot = filename.lastIndexOf('.');
+        String extension = dot < 0 ? "" : filename.substring(dot + 1).toLowerCase(Locale.ROOT);
         try {
             return switch (extension) {
                 case "pdf" -> pdf(bytes);

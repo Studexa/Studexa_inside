@@ -104,9 +104,7 @@ public class QuestService {
         ZoneId zoneId = zoneIdFor(userId);
         LocalDate today = clock.instant().atZone(zoneId).toLocalDate();
 
-        Quest quest = questRepository.findByUserIdAndQuestDateOrderByCode(userId, today).stream()
-                .filter(q -> q.getCode().equals(code) && !q.isCompleted())
-                .findFirst()
+        Quest quest = questRepository.findByUserIdAndQuestDateAndCodeAndCompletedFalse(userId, today, code)
                 .orElse(null);
 
         if (quest == null) {

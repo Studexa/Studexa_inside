@@ -1,5 +1,6 @@
 package com.studexa.deck;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -17,6 +18,7 @@ import com.studexa.common.CurrentUser;
 import com.studexa.deck.dto.DailyReviewProgress;
 import com.studexa.deck.dto.ReviewAnswerRequest;
 import com.studexa.deck.dto.ReviewAnswerResponse;
+import com.studexa.deck.dto.ReviewQueueCard;
 import com.studexa.deck.dto.ReviewQueueResponse;
 import com.studexa.deck.dto.ReviewUndoResponse;
 
@@ -41,6 +43,11 @@ public class ReviewController {
     @GetMapping("/today")
     public DailyReviewProgress dailyReviewProgress(@AuthenticationPrincipal Jwt jwt) {
         return reviewService.getDailyProgress(CurrentUser.id(jwt));
+    }
+
+    @GetMapping("/weak-cards")
+    public List<ReviewQueueCard> weakCards(@AuthenticationPrincipal Jwt jwt) {
+        return reviewService.getWeakCards(CurrentUser.id(jwt));
     }
 
     @PostMapping("/answer")

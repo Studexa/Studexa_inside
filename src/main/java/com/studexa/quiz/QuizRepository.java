@@ -16,6 +16,9 @@ public interface QuizRepository extends JpaRepository<Quiz, UUID> {
 
     Optional<Quiz> findByIdAndOwnerId(UUID id, UUID ownerId);
 
+    @Query(value = "select exists (select 1 from slide_decks where quiz_id = :quizId)", nativeQuery = true)
+    boolean isSlideDeckQuiz(@Param("quizId") UUID quizId);
+
     @Query("SELECT q FROM Quiz q WHERE q.visibility = 'PUBLIC'")
     List<Quiz> findPublicQuizzes();
 }
